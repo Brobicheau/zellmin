@@ -6,6 +6,7 @@ Zellij plugin for creating Git worktrees and switching into a session rooted at 
 
 - Uses `<repo>/.worktrees/<branch>` as the worktree path.
 - Uses a sanitized `<repo>-<branch>-<hash>` Zellij session name.
+- Automatically shortens overlong session names to avoid Zellij IPC socket path limits, especially on macOS where `$TMPDIR` is often long.
 - Creates or switches to a deterministic session only after `git worktree add` succeeds for the expected path.
 - Fails clearly if `git worktree add` fails, including when the branch is already checked out in another worktree.
 
@@ -70,7 +71,7 @@ Repository config takes precedence over KDL config, which takes precedence over 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `worktree_dir_name` | String | `.worktrees` | Directory name for worktrees relative to repo root |
-| `session_prefix` | String | _(none)_ | Optional prefix for Zellij session names (e.g., "wt" → "wt-repo-branch-hash") |
+| `session_prefix` | String | _(none)_ | Optional prefix for Zellij session names (e.g., "wt" → "wt-repo-branch-hash"); overlong names are shortened automatically |
 | `base_branch` | String | _(none)_ | Base branch to track from when creating new branches (e.g., "main", "develop") |
 | `remote` | String | `origin` | Git remote to use when checking out branches |
 | `auto_fetch` | Boolean | `false` | Whether to fetch from remote before creating worktree |

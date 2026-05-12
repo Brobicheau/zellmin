@@ -70,7 +70,7 @@ worktree_dir_name = ".worktrees"
 
 **Type:** String (optional)  
 **Default:** None  
-**Description:** Prefix for Zellij session names.
+**Description:** Prefix for Zellij session names. If the full generated name would be too long for Zellij's IPC socket path, zitree shortens it automatically while keeping it deterministic. This is especially important on macOS, where the default temporary directory path is often already long.
 
 **Examples:**
 ```kdl
