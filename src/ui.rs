@@ -73,7 +73,7 @@ fn render_ready(
     width: usize,
     gutter: usize,
 ) {
-    let repo_root = repo_root
+    let repo_root_display = repo_root
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| "Detecting repository root...".to_string());
 
@@ -85,7 +85,7 @@ fn render_ready(
 
     print_border('┌', '─', '┐', width, gutter);
     print_section_header("Configuration", width, gutter);
-    print_kv_line("Repo", &repo_root, width, gutter);
+    print_kv_line("Repo", &repo_root_display, width, gutter);
     print_kv_line(
         "Worktree base",
         &format!(
@@ -127,7 +127,11 @@ fn render_ready(
     print_section_header("Worktree Sessions", width, gutter);
     if worktree_sessions.is_empty() {
         print_box_line(
-            &style("No git worktrees found for this repository.", DIM, Some(WHITE)),
+            &style(
+                "No git worktrees found for this repository.",
+                DIM,
+                Some(WHITE),
+            ),
             width,
             gutter,
         );
@@ -143,11 +147,7 @@ fn render_ready(
             } else {
                 String::new()
             };
-            let location = entry
-                .path
-                .as_ref()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "session only".to_string());
+            let location = worktree_display_name(entry.path.as_deref(), repo_root, config);
             let line = format!(
                 "{} {} {} {}{}",
                 selected_marker,
@@ -168,46 +168,41 @@ fn render_ready(
     println!();
 
     print_border('┌', '─', '┐', width, gutter);
-    let help_primary = format!(
-        "{} create or switch  {} move selection",
-        keycap("Enter"),
-        keycap("Up/Down")
-    );
-    let help_secondary = format!(
-        "{} clear input  {} delete session",
-        keycap("Esc"),
-        keycap("Delete")
-    );
-    print_box_line(&help_primary, width, gutter);
-    print_box_line(&help_secondary, width, gutter);
-    print_box_line(
-        &style(
-            "Branch input set: create worktree and switch. Empty input: switch selected worktree session, creating it if needed.",
-            DIM,
-            Some(WHITE),
-        ),
-        width,
-        gutter,
-    );
-    print_box_line(
-        &style(
-            "Delete clears typed input first, then deletes the selected non-current live session.",
-            DIM,
-            Some(WHITE),
-        ),
-        width,
-        gutter,
-    );
-    print_box_line(
-        &style(
-            "Ctrl-c does nothing inside the plugin pane.",
-            DIM,
-            Some(WHITE),
-        ),
-        width,
-        gutter,
-    );
+    print_help_ln("Enter", "create or switch", width, gutter);
+    print_help_ln("Up/Down", "move selection", width, gutter);
+    print_help_ln("Delete", "delete session", width, gutter);
+    print_help_ln("Esc", "clear input", width, gutter);
     print_border('└', '─', '┘', width, gutter);
+}
+
+fn print_help_ln(key: &str, title: &str, width: usize, gutter: usize) {
+    print_box_line(&format!("{} {} ", keycap(key), title), width, gutter);
+}
+
+fn worktree_display_name(path: Option<&Path>, repo_root: Option<&Path>, config: &Config) -> String {
+    let Some(path) = path else {
+        return "session only".to_string();
+    };
+
+    if repo_root == Some(path) {
+        return path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("main")
+            .to_string();
+    }
+
+    if let Some(repo_root) = repo_root {
+        let worktree_base = repo_root.join(&config.worktree_dir_name);
+        if let Ok(relative_path) = path.strip_prefix(&worktree_base) {
+            return relative_path.display().to_string();
+        }
+    }
+
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("worktree")
+        .to_string()
 }
 
 fn pattern_display(pattern: &crate::config::WorktreeNamingPattern) -> &str {
