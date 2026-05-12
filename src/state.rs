@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use zellij_tile::prelude::*;
 
-use crate::commands::{self, CommandAction, WorktreeLocation};
+use crate::commands::{self, git, zellij, CommandAction, WorktreeLocation};
 use crate::config::Config;
 use crate::naming;
 use crate::ui;
@@ -86,7 +86,8 @@ impl ZellijPlugin for State {
                 true
             }
             Event::SessionUpdate(live_sessions, _) => {
-                self.live_session_names = live_sessions.into_iter().map(|session| session.name).collect();
+                self.live_session_names =
+                    live_sessions.into_iter().map(|session| session.name).collect();
                 self.rebuild_worktree_sessions();
                 true
             }
@@ -216,7 +217,7 @@ impl State {
         // If auto_fetch is enabled, fetch first
         if self.config.auto_fetch {
             self.status = Status::Busy(format!("Fetching from remote `{}`...", self.config.remote));
-            commands::fetch_remote(repo_root, &self.config.remote, &branch);
+            git::fetch_remote(repo_root, &self.config.remote, &branch);
         } else {
             self.check_branch(&branch);
         }
@@ -229,7 +230,7 @@ impl State {
         };
 
         self.status = Status::Busy(format!("Checking branch `{branch}`..."));
-        commands::check_branch(repo_root, branch);
+        git::check_branch(repo_root, branch);
     }
 
     fn handle_run_command_result(
@@ -247,9 +248,12 @@ impl State {
             CommandAction::DiscoverRepo => {
                 if exit_code == Some(0) {
                     let output = String::from_utf8_lossy(&stdout);
-                    let Some((current_worktree_root, repo_root)) = commands::parse_repo_roots(&output) else {
-                        self.status =
-                            Status::Error("Could not determine git repository root.".to_string());
+                    let Some((current_worktree_root, repo_root)) =
+                        git::parse_repo_roots(&output)
+                    else {
+                        self.status = Status::Error(
+                            "Could not determine git repository root.".to_string(),
+                        );
                         return;
                     };
                     self.repo_name = repo_root
@@ -311,10 +315,17 @@ impl State {
                 if exit_code == Some(0) {
                     self.create_or_switch_worktree_session(&branch);
                 } else {
-                    self.status = Status::Error(commands::command_error("Failed to create worktree.", &stderr));
+                    self.status = Status::Error(commands::command_error(
+                        "Failed to create worktree.",
+                        &stderr,
+                    ));
                 }
             }
-            CommandAction::CreateSession { branch, path: worktree_path, session: session_name } => {
+            CommandAction::CreateSession {
+                branch,
+                path: worktree_path,
+                session: session_name,
+            } => {
                 if exit_code == Some(0) {
                     if !self
                         .live_session_names
@@ -330,13 +341,16 @@ impl State {
                     ));
                     switch_session(Some(&session_name));
                 } else {
-                    self.status = Status::Error(commands::command_error("Failed to create session.", &stderr));
+                    self.status = Status::Error(commands::command_error(
+                        "Failed to create session.",
+                        &stderr,
+                    ));
                 }
             }
             CommandAction::ListWorktrees => {
                 if exit_code == Some(0) {
                     let previous_selection = self.selected_session_key();
-                    self.known_worktrees = commands::parse_worktree_locations(
+                    self.known_worktrees = git::parse_worktree_locations(
                         &String::from_utf8_lossy(&stdout),
                         self.current_worktree_root.as_deref(),
                     );
@@ -345,7 +359,10 @@ impl State {
                     );
                     self.status = Status::Ready;
                 } else {
-                    self.status = Status::Error(commands::command_error("Failed to load worktree sessions.", &stderr));
+                    self.status = Status::Error(commands::command_error(
+                        "Failed to load worktree sessions.",
+                        &stderr,
+                    ));
                 }
             }
             CommandAction::DeleteSession { session: session_name } => {
@@ -374,9 +391,9 @@ impl State {
         self.status = Status::Busy(format!("Creating worktree `{}`...", worktree_path.display()));
         
         if branch_exists {
-            commands::create_worktree_existing(repo_root, branch, &worktree_path);
+            git::create_worktree_existing(repo_root, branch, &worktree_path);
         } else {
-            commands::create_worktree(
+            git::create_worktree(
                 repo_root,
                 branch,
                 &worktree_path,
@@ -387,7 +404,7 @@ impl State {
 
     fn discover_repo(&mut self) {
         self.status = Status::Busy("Discovering repository root...".to_string());
-        commands::discover_repo();
+        git::discover_repo();
     }
     
     fn load_repo_config(&mut self, repo_root: PathBuf) {
@@ -402,7 +419,7 @@ impl State {
         };
 
         self.status = Status::Busy("Loading worktree sessions...".to_string());
-        commands::list_worktrees(repo_root);
+        git::list_worktrees(repo_root);
     }
 
     fn select_previous_worktree_session(&mut self) {
@@ -477,14 +494,19 @@ impl State {
         self.create_session_for_worktree(branch, &worktree_path, &session_name);
     }
 
-    fn create_session_for_worktree(&mut self, branch: &str, worktree_path: &Path, session_name: &str) {
+    fn create_session_for_worktree(
+        &mut self,
+        branch: &str,
+        worktree_path: &Path,
+        session_name: &str,
+    ) {
         let worktree_path_string = worktree_path.display().to_string();
 
         self.status = Status::Busy(format!(
             "Creating session `{session_name}` in `{}`...",
             worktree_path_string
         ));
-        commands::create_session(branch, worktree_path, session_name);
+        zellij::create_session(branch, worktree_path, session_name);
     }
 
     fn delete_selected_worktree_session(&mut self) {
@@ -512,7 +534,7 @@ impl State {
         };
 
         self.status = Status::Busy(format!("Deleting session `{live_session_name}`..."));
-        commands::delete_session(repo_root, live_session_name);
+        zellij::delete_session(repo_root, live_session_name);
     }
 
     fn add_or_select_worktree_session(&mut self, branch: &str, path: &Path, session_name: &str) {

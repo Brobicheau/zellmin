@@ -3,31 +3,10 @@ use std::path::{Path, PathBuf};
 
 use zellij_tile::prelude::*;
 
-const CONTEXT_ACTION: &str = "action";
-const CONTEXT_BRANCH: &str = "branch";
-const CONTEXT_PATH: &str = "path";
-const CONTEXT_SESSION: &str = "session";
-
-const ACTION_DISCOVER_REPO: &str = "discover-repo";
-const ACTION_LOAD_REPO_CONFIG: &str = "load-repo-config";
-const ACTION_FETCH_REMOTE: &str = "fetch-remote";
-const ACTION_CHECK_BRANCH: &str = "check-branch";
-const ACTION_CREATE_WORKTREE: &str = "create-worktree";
-const ACTION_CREATE_SESSION: &str = "create-session";
-const ACTION_LIST_WORKTREES: &str = "list-worktrees";
-const ACTION_DELETE_SESSION: &str = "delete-session";
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CommandAction {
-    DiscoverRepo,
-    LoadRepoConfig,
-    FetchRemote { branch: String },
-    CheckBranch { branch: String },
-    CreateWorktree { branch: String },
-    CreateSession { branch: String, path: PathBuf, session: String },
-    ListWorktrees,
-    DeleteSession { session: String },
-}
+use super::{
+    ACTION_CHECK_BRANCH, ACTION_CREATE_WORKTREE, ACTION_DISCOVER_REPO, ACTION_FETCH_REMOTE,
+    ACTION_LIST_WORKTREES, CONTEXT_ACTION, CONTEXT_BRANCH,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorktreeLocation {
@@ -49,17 +28,6 @@ pub fn discover_repo() {
         BTreeMap::new(),
         initial_cwd,
         BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_DISCOVER_REPO.to_string())]),
-    );
-}
-
-pub fn load_repo_config(repo_root: PathBuf) {
-    let config_path = repo_root.join(".zitree.toml");
-    let config_path_str = config_path.display().to_string();
-    run_command_with_env_variables_and_cwd(
-        &["cat", &config_path_str],
-        BTreeMap::new(),
-        repo_root,
-        BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_LOAD_REPO_CONFIG.to_string())]),
     );
 }
 
@@ -95,12 +63,10 @@ pub fn create_worktree(
 ) {
     let worktree_path_string = worktree_path.display().to_string();
     let mut command = vec!["git", "worktree", "add", worktree_path_string.as_str()];
-    
-    // If branch exists, we'll just add it as a target, otherwise create new branch
-    // This is determined by the caller based on check_branch result
+
     command.push("-b");
     command.push(branch);
-    
+
     if let Some(base) = base_branch {
         command.push(base);
     }
@@ -110,7 +76,10 @@ pub fn create_worktree(
         BTreeMap::new(),
         repo_root,
         BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_CREATE_WORKTREE.to_string()),
+            (
+                CONTEXT_ACTION.to_string(),
+                ACTION_CREATE_WORKTREE.to_string(),
+            ),
             (CONTEXT_BRANCH.to_string(), branch.to_string()),
         ]),
     );
@@ -125,7 +94,10 @@ pub fn create_worktree_existing(repo_root: PathBuf, branch: &str, worktree_path:
         BTreeMap::new(),
         repo_root,
         BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_CREATE_WORKTREE.to_string()),
+            (
+                CONTEXT_ACTION.to_string(),
+                ACTION_CREATE_WORKTREE.to_string(),
+            ),
             (CONTEXT_BRANCH.to_string(), branch.to_string()),
         ]),
     );
@@ -136,68 +108,11 @@ pub fn list_worktrees(repo_root: PathBuf) {
         &["git", "worktree", "list", "--porcelain"],
         BTreeMap::new(),
         repo_root,
-        BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_LIST_WORKTREES.to_string())]),
+        BTreeMap::from([(
+            CONTEXT_ACTION.to_string(),
+            ACTION_LIST_WORKTREES.to_string(),
+        )]),
     );
-}
-
-pub fn create_session(branch: &str, worktree_path: &Path, session_name: &str) {
-    let worktree_path_string = worktree_path.display().to_string();
-    run_command_with_env_variables_and_cwd(
-        &["zellij", "attach", "--create-background", session_name],
-        BTreeMap::new(),
-        worktree_path.to_path_buf(),
-        BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_CREATE_SESSION.to_string()),
-            (CONTEXT_BRANCH.to_string(), branch.to_string()),
-            (CONTEXT_PATH.to_string(), worktree_path_string),
-            (CONTEXT_SESSION.to_string(), session_name.to_string()),
-        ]),
-    );
-}
-
-pub fn delete_session(repo_root: PathBuf, session_name: &str) {
-    run_command_with_env_variables_and_cwd(
-        &["zellij", "delete-session", session_name, "--force"],
-        BTreeMap::new(),
-        repo_root,
-        BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_DELETE_SESSION.to_string()),
-            (CONTEXT_SESSION.to_string(), session_name.to_string()),
-        ]),
-    );
-}
-
-pub fn parse_action(context: &BTreeMap<String, String>) -> Option<CommandAction> {
-    let action = context.get(CONTEXT_ACTION)?;
-    
-    match action.as_str() {
-        ACTION_DISCOVER_REPO => Some(CommandAction::DiscoverRepo),
-        ACTION_LOAD_REPO_CONFIG => Some(CommandAction::LoadRepoConfig),
-        ACTION_FETCH_REMOTE => {
-            let branch = context.get(CONTEXT_BRANCH)?.clone();
-            Some(CommandAction::FetchRemote { branch })
-        }
-        ACTION_CHECK_BRANCH => {
-            let branch = context.get(CONTEXT_BRANCH)?.clone();
-            Some(CommandAction::CheckBranch { branch })
-        }
-        ACTION_CREATE_WORKTREE => {
-            let branch = context.get(CONTEXT_BRANCH)?.clone();
-            Some(CommandAction::CreateWorktree { branch })
-        }
-        ACTION_CREATE_SESSION => {
-            let branch = context.get(CONTEXT_BRANCH)?.clone();
-            let path = context.get(CONTEXT_PATH).map(PathBuf::from)?;
-            let session = context.get(CONTEXT_SESSION)?.clone();
-            Some(CommandAction::CreateSession { branch, path, session })
-        }
-        ACTION_LIST_WORKTREES => Some(CommandAction::ListWorktrees),
-        ACTION_DELETE_SESSION => {
-            let session = context.get(CONTEXT_SESSION)?.clone();
-            Some(CommandAction::DeleteSession { session })
-        }
-        _ => None,
-    }
 }
 
 pub fn parse_repo_roots(output: &str) -> Option<(PathBuf, PathBuf)> {
@@ -240,15 +155,6 @@ fn parse_worktree_location_block(
         branch,
         path,
     })
-}
-
-pub fn command_error(prefix: &str, stderr: &[u8]) -> String {
-    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
-    if stderr.is_empty() {
-        prefix.to_string()
-    } else {
-        format!("{prefix} {stderr}")
-    }
 }
 
 #[cfg(test)]
@@ -308,46 +214,5 @@ mod tests {
 
         assert!(!worktrees[0].is_current);
         assert!(worktrees[1].is_current);
-    }
-
-    #[test]
-    fn parses_discover_repo_action() {
-        let context = BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_DISCOVER_REPO.to_string())]);
-        
-        assert_eq!(parse_action(&context), Some(CommandAction::DiscoverRepo));
-    }
-
-    #[test]
-    fn parses_fetch_remote_action_with_branch() {
-        let context = BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_FETCH_REMOTE.to_string()),
-            (CONTEXT_BRANCH.to_string(), "feature/test".to_string()),
-        ]);
-        
-        assert_eq!(
-            parse_action(&context),
-            Some(CommandAction::FetchRemote {
-                branch: "feature/test".to_string()
-            })
-        );
-    }
-
-    #[test]
-    fn parses_create_session_action_with_all_context() {
-        let context = BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_CREATE_SESSION.to_string()),
-            (CONTEXT_BRANCH.to_string(), "main".to_string()),
-            (CONTEXT_PATH.to_string(), "/tmp/repo".to_string()),
-            (CONTEXT_SESSION.to_string(), "repo-main".to_string()),
-        ]);
-        
-        assert_eq!(
-            parse_action(&context),
-            Some(CommandAction::CreateSession {
-                branch: "main".to_string(),
-                path: PathBuf::from("/tmp/repo"),
-                session: "repo-main".to_string()
-            })
-        );
     }
 }
