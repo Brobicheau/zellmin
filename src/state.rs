@@ -666,6 +666,7 @@ impl State {
 
     fn rebuild_worktree_sessions_with_selection(&mut self, previous_selection: Option<&str>) {
         self.worktree_sessions = build_worktree_sessions(
+            self.repo_root.as_deref(),
             self.repo_name.as_deref(),
             &self.config,
             &self.known_worktrees,
@@ -745,6 +746,7 @@ fn parse_worktree_location_block(
 }
 
 fn build_worktree_sessions(
+    repo_root: Option<&Path>,
     repo_name: Option<&str>,
     config: &Config,
     known_worktrees: &[WorktreeLocation],
@@ -757,16 +759,36 @@ fn build_worktree_sessions(
     let mut sessions = known_worktrees
         .iter()
         .map(|worktree| {
+            let is_main_worktree = repo_root == Some(worktree.path.as_path());
             let candidates = worktree_session_name_candidates(Some(repo_name), &worktree.branch, config);
-            let live_session_name = live_session_names
+            let generated_live_session_name = live_session_names
                 .iter()
                 .find(|session_name| candidates.iter().any(|candidate| candidate == *session_name))
                 .cloned();
+            let main_live_session_name = is_main_worktree
+                .then(|| {
+                    let main_session_candidates = main_worktree_session_name_candidates(repo_name);
+                    live_session_names
+                        .iter()
+                        .find(|session_name| {
+                            main_session_candidates
+                                .iter()
+                                .any(|candidate| candidate == *session_name)
+                        })
+                        .cloned()
+                })
+                .flatten();
+            let live_session_name = main_live_session_name.or(generated_live_session_name);
+            let session_name = if is_main_worktree {
+                main_worktree_session_name(repo_name)
+            } else {
+                naming::session_name(Some(repo_name), &worktree.branch, config)
+            };
 
             WorktreeSessionEntry {
                 branch: worktree.branch.clone(),
                 path: Some(worktree.path.clone()),
-                session_name: naming::session_name(Some(repo_name), &worktree.branch, config),
+                session_name,
                 live_session_name: live_session_name.clone(),
                 has_live_session: live_session_name.is_some(),
                 is_current: worktree.is_current,
@@ -784,6 +806,19 @@ fn worktree_session_name_candidates(
     config: &Config,
 ) -> Vec<String> {
     naming::session_name_candidates(repo_name, branch, config)
+}
+
+fn main_worktree_session_name_candidates(repo_name: &str) -> Vec<String> {
+    let mut candidates = vec![main_worktree_session_name(repo_name)];
+    let sanitized = naming::sanitize_session_segment(repo_name);
+    if sanitized != repo_name {
+        candidates.push(sanitized);
+    }
+    candidates
+}
+
+fn main_worktree_session_name(repo_name: &str) -> String {
+    repo_name.to_string()
 }
 
 fn selected_index_for_sessions(
@@ -901,6 +936,7 @@ mod tests {
             },
         ];
         let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
             Some("repo"),
             &config,
             &worktrees,
@@ -913,6 +949,7 @@ mod tests {
         assert_eq!(sessions.len(), 2);
         assert_eq!(sessions[0].branch, "main");
         assert_eq!(sessions[0].path, Some(PathBuf::from("/tmp/repo")));
+        assert_eq!(sessions[0].session_name, "repo");
         assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo-main-17c9aaa7"));
         assert_eq!(sessions[1].branch, "feature/test");
         assert_eq!(sessions[1].path, Some(PathBuf::from("/tmp/repo/.worktrees/feature")));
@@ -936,6 +973,7 @@ mod tests {
     fn keeps_worktree_without_live_session_in_session_list() {
         let config = Config::default();
         let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
             Some("repo"),
             &config,
             &[WorktreeLocation {
@@ -957,6 +995,7 @@ mod tests {
     fn ignores_live_session_when_worktree_is_missing() {
         let config = Config::default();
         let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
             Some("repo"),
             &config,
             &[],
@@ -964,6 +1003,69 @@ mod tests {
         );
 
         assert!(sessions.is_empty());
+    }
+
+    #[test]
+    fn matches_plain_repo_name_session_for_main_worktree() {
+        let config = Config::default();
+        let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
+            Some("repo"),
+            &config,
+            &[WorktreeLocation {
+                branch: "main".to_string(),
+                path: PathBuf::from("/tmp/repo"),
+                is_current: true,
+            }],
+            &["repo".to_string()],
+        );
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].branch, "main");
+        assert_eq!(sessions[0].session_name, "repo");
+        assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo"));
+        assert!(sessions[0].has_live_session);
+    }
+
+    #[test]
+    fn does_not_match_plain_repo_name_session_for_linked_worktree() {
+        let config = Config::default();
+        let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
+            Some("repo"),
+            &config,
+            &[WorktreeLocation {
+                branch: "feature/test".to_string(),
+                path: PathBuf::from("/tmp/repo/.worktrees/feature"),
+                is_current: false,
+            }],
+            &["repo".to_string()],
+        );
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].branch, "feature/test");
+        assert_eq!(sessions[0].live_session_name, None);
+        assert!(!sessions[0].has_live_session);
+    }
+
+    #[test]
+    fn prefers_plain_repo_name_over_generated_session_name_for_main_worktree() {
+        let config = Config::default();
+        let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
+            Some("repo"),
+            &config,
+            &[WorktreeLocation {
+                branch: "main".to_string(),
+                path: PathBuf::from("/tmp/repo"),
+                is_current: true,
+            }],
+            &["repo".to_string(), "repo-main-17c9aaa7".to_string()],
+        );
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_name, "repo");
+        assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo"));
     }
 
     #[test]
