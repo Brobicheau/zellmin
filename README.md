@@ -8,6 +8,8 @@ Zellij plugin for creating Git worktrees and switching into a session rooted at 
 - Uses a sanitized `<repo>-<branch>-<hash>` Zellij session name.
 - Automatically shortens overlong session names to avoid Zellij IPC socket path limits, especially on macOS where `$TMPDIR` is often long.
 - Creates or switches to a deterministic session only after `git worktree add` succeeds for the expected path.
+- Shows only Git worktrees from the current repository in the session list.
+- Creates the selected worktree session on demand when you press `Enter` and that worktree does not already have a live session.
 - Fails clearly if `git worktree add` fails, including when the branch is already checked out in another worktree.
 
 ## Build
@@ -154,6 +156,12 @@ LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
 1. Focus the plugin pane.
 2. Type the branch name.
 3. Press `Enter`.
+
+With an empty branch input, you can also:
+
+1. Use `Up` / `Down` to select a repository worktree.
+2. Press `Enter` to switch to its session, creating the session if needed.
+3. Press `Delete` to delete the selected non-current session.
 
 The plugin will:
 
