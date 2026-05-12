@@ -37,7 +37,7 @@ release-plugin-path:
     @printf "%s\n" "{{release_plugin_path}}"
 
 reload:
-    zellij action start-or-reload-plugin "file:$PWD/{{plugin_path}}"
+    zellij action start-or-reload-plugin "file:$PWD/target/wasm32-wasip1/debug/zitree.wasm"
 
 reload-release:
     zellij action start-or-reload-plugin "file:$PWD/{{release_plugin_path}}"

@@ -6,7 +6,7 @@ Zellij plugin for creating Git worktrees and switching into a session rooted at 
 
 - Uses `<repo>/.worktrees/<branch>` as the worktree path.
 - Uses a sanitized `<repo>-<branch>-<hash>` Zellij session name.
-- Reuses an existing session only after `git worktree add` succeeds for the expected path.
+- Creates or switches to a deterministic session only after `git worktree add` succeeds for the expected path.
 - Fails clearly if `git worktree add` fails, including when the branch is already checked out in another worktree.
 
 ## Build
@@ -18,6 +18,8 @@ cargo build --release --target wasm32-wasip1
 ```
 
 If your toolchain still expects the legacy target name, use `wasm32-wasi` instead.
+
+The crate is pinned to `zellij-tile 0.44.1` to match Zellij `0.44.1`.
 
 Expected plugin artifact:
 
