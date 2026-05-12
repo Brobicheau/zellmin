@@ -24,7 +24,6 @@ pub struct State {
     repo_name: Option<String>,
     branch_input: String,
     status: Status,
-    sessions: Vec<String>,
     config_loaded: bool,
 }
 
@@ -42,12 +41,12 @@ impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         self.kdl_config = Config::from_kdl(configuration);
         self.config = self.kdl_config.clone();
+        self.config_loaded = false;
         set_selectable(true);
         subscribe(&[
             EventType::PermissionRequestResult,
             EventType::RunCommandResult,
             EventType::Key,
-            EventType::SessionUpdate,
         ]);
         request_permission(&[
             PermissionType::ReadApplicationState,
@@ -62,7 +61,6 @@ impl ZellijPlugin for State {
             Event::PermissionRequestResult(status) => {
                 self.permissions_granted = matches!(status, PermissionStatus::Granted);
                 if self.permissions_granted {
-                    self.refresh_sessions();
                     self.discover_repo();
                 } else {
                     self.status = Status::Error(
@@ -77,10 +75,6 @@ impl ZellijPlugin for State {
                 true
             }
             Event::Key(key) => self.handle_key(key),
-            Event::SessionUpdate(live_sessions, _) => {
-                self.sessions = live_sessions.into_iter().map(|session| session.name).collect();
-                true
-            }
             _ => false,
         }
     }
@@ -152,12 +146,12 @@ impl State {
             return;
         }
 
-        let branch = self.branch_input.trim();
+        let branch = self.branch_input.trim().to_string();
         if branch.is_empty() {
             self.status = Status::Error("Enter a branch name first.".to_string());
             return;
         }
-        if let Err(message) = validate_branch_name(branch) {
+        if let Err(message) = validate_branch_name(&branch) {
             self.status = Status::Error(message);
             return;
         }
@@ -166,7 +160,7 @@ impl State {
         if self.config.auto_fetch {
             let context = BTreeMap::from([
                 (CONTEXT_ACTION.to_string(), ACTION_FETCH_REMOTE.to_string()),
-                ("branch".to_string(), branch.to_string()),
+                ("branch".to_string(), branch.clone()),
             ]);
             self.status = Status::Busy(format!("Fetching from remote `{}`...", self.config.remote));
             run_command_with_env_variables_and_cwd(
@@ -176,7 +170,7 @@ impl State {
                 context,
             );
         } else {
-            self.check_branch(branch);
+            self.check_branch(&branch);
         }
     }
     
@@ -250,10 +244,12 @@ impl State {
                             }
                         }
                     } else {
+                        self.config = self.kdl_config.clone();
                         self.status = Status::Ready;
                     }
                 } else {
                     // Config file doesn't exist, use KDL config
+                    self.config = self.kdl_config.clone();
                     self.status = Status::Ready;
                 }
                 self.config_loaded = true;
@@ -355,16 +351,6 @@ impl State {
             repo_root,
             BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_LOAD_REPO_CONFIG.to_string())]),
         );
-    }
-
-    fn refresh_sessions(&mut self) {
-        if let Ok(snapshot) = get_session_list() {
-            self.sessions = snapshot
-                .live_sessions
-                .into_iter()
-                .map(|session| session.name)
-                .collect();
-        }
     }
 
     fn worktree_path(&self, branch: &str) -> PathBuf {
