@@ -1,0 +1,28 @@
+# Example .zitree.toml configuration file
+# Copy this to .zitree.toml in your repository root to use it
+
+# Directory name for worktrees relative to repo root
+worktree_dir_name = ".worktrees"
+
+# Optional prefix for Zellij session names
+# Example: "wt" will create sessions like "wt-myrepo-feature-abc123"
+# session_prefix = "wt"
+
+# Base branch to use when creating new branches
+# If specified, new branches will be created from this branch
+# Example: base_branch = "main" or "develop"
+# base_branch = "main"
+
+# Git remote to use when fetching/checking out branches
+remote = "origin"
+
+# Whether to automatically fetch from remote before creating worktree
+# This ensures you have the latest remote branches available
+auto_fetch = false
+
+# Pattern for worktree directory naming
+# Options:
+#   "branch"       -> .worktrees/feature-xyz
+#   "hash"         -> .worktrees/a1b2c3d4
+#   "branch-hash"  -> .worktrees/feature-xyz-a1b2c3d4
+worktree_naming_pattern = "branch"

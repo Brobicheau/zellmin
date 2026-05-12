@@ -1,20 +1,36 @@
 use std::path::{Path, PathBuf};
+use crate::config::{Config, WorktreeNamingPattern};
 
-pub fn worktree_path(repo_root: &Path, worktree_dir_name: &str, branch: &str) -> PathBuf {
+pub fn worktree_path(repo_root: &Path, config: &Config, branch: &str) -> PathBuf {
+    let worktree_name = match config.worktree_naming_pattern {
+        WorktreeNamingPattern::Branch => sanitize_path_segment(branch),
+        WorktreeNamingPattern::Hash => short_hash(branch),
+        WorktreeNamingPattern::BranchHash => {
+            format!("{}-{}", sanitize_path_segment(branch), short_hash(branch))
+        }
+    };
+    
     repo_root
-        .join(worktree_dir_name)
-        .join(sanitize_path_segment(branch))
+        .join(&config.worktree_dir_name)
+        .join(worktree_name)
 }
 
-pub fn session_name(repo_name: Option<&str>, branch: &str) -> String {
+pub fn session_name(repo_name: Option<&str>, branch: &str, config: &Config) -> String {
     let repo = repo_name.unwrap_or("repo");
     let branch_hash = short_hash(branch);
-    format!(
+    
+    let base_name = format!(
         "{}-{}-{}",
         sanitize_session_segment(repo),
         sanitize_session_segment(branch),
         branch_hash
-    )
+    );
+    
+    if let Some(prefix) = &config.session_prefix {
+        format!("{}-{}", sanitize_session_segment(prefix), base_name)
+    } else {
+        base_name
+    }
 }
 
 pub fn sanitize_path_segment(input: &str) -> String {

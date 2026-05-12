@@ -10,18 +10,22 @@ use crate::validation::{is_branch_char, validate_branch_name};
 
 const CONTEXT_ACTION: &str = "action";
 const ACTION_DISCOVER_REPO: &str = "discover-repo";
+const ACTION_LOAD_REPO_CONFIG: &str = "load-repo-config";
+const ACTION_FETCH_REMOTE: &str = "fetch-remote";
 const ACTION_CHECK_BRANCH: &str = "check-branch";
 const ACTION_CREATE_WORKTREE: &str = "create-worktree";
 
 #[derive(Default)]
 pub struct State {
     config: Config,
+    kdl_config: Config,
     permissions_granted: bool,
     repo_root: Option<PathBuf>,
     repo_name: Option<String>,
     branch_input: String,
     status: Status,
     sessions: Vec<String>,
+    config_loaded: bool,
 }
 
 #[derive(Default)]
@@ -36,7 +40,8 @@ pub enum Status {
 
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
-        self.config = Config::from(configuration);
+        self.kdl_config = Config::from_kdl(configuration);
+        self.config = self.kdl_config.clone();
         set_selectable(true);
         subscribe(&[
             EventType::PermissionRequestResult,
@@ -84,7 +89,7 @@ impl ZellijPlugin for State {
         ui::render(
             &self.status,
             self.repo_root.as_deref(),
-            &self.config.worktree_dir_name,
+            &self.config,
             &self.branch_input,
             cols,
         );
@@ -142,6 +147,11 @@ impl State {
             return;
         };
 
+        if !self.config_loaded {
+            self.status = Status::Error("Configuration is still loading.".to_string());
+            return;
+        }
+
         let branch = self.branch_input.trim();
         if branch.is_empty() {
             self.status = Status::Error("Enter a branch name first.".to_string());
@@ -151,6 +161,30 @@ impl State {
             self.status = Status::Error(message);
             return;
         }
+
+        // If auto_fetch is enabled, fetch first
+        if self.config.auto_fetch {
+            let context = BTreeMap::from([
+                (CONTEXT_ACTION.to_string(), ACTION_FETCH_REMOTE.to_string()),
+                ("branch".to_string(), branch.to_string()),
+            ]);
+            self.status = Status::Busy(format!("Fetching from remote `{}`...", self.config.remote));
+            run_command_with_env_variables_and_cwd(
+                &["git", "fetch", &self.config.remote],
+                BTreeMap::new(),
+                repo_root,
+                context,
+            );
+        } else {
+            self.check_branch(branch);
+        }
+    }
+    
+    fn check_branch(&mut self, branch: &str) {
+        let Some(repo_root) = self.repo_root.clone() else {
+            self.status = Status::Error("Repository root is not available yet.".to_string());
+            return;
+        };
 
         let context = BTreeMap::from([
             (CONTEXT_ACTION.to_string(), ACTION_CHECK_BRANCH.to_string()),
@@ -190,11 +224,51 @@ impl State {
                         .file_name()
                         .and_then(|name| name.to_str())
                         .map(|name| name.to_string());
-                    self.repo_root = Some(repo_root);
-                    self.status = Status::Ready;
+                    self.repo_root = Some(repo_root.clone());
+                    
+                    // Try to load repo config
+                    self.load_repo_config(repo_root);
                 } else {
                     self.status = Status::Error(command_error(
                         "Failed to discover repository root.",
+                        &stderr,
+                    ));
+                }
+            }
+            ACTION_LOAD_REPO_CONFIG => {
+                if exit_code == Some(0) {
+                    let toml_content = String::from_utf8_lossy(&stdout).to_string();
+                    if !toml_content.trim().is_empty() {
+                        match Config::from_toml(&toml_content) {
+                            Ok(repo_config) => {
+                                self.config = self.kdl_config.clone();
+                                self.config.merge(repo_config);
+                                self.status = Status::Ready;
+                            }
+                            Err(err) => {
+                                self.status = Status::Error(err);
+                            }
+                        }
+                    } else {
+                        self.status = Status::Ready;
+                    }
+                } else {
+                    // Config file doesn't exist, use KDL config
+                    self.status = Status::Ready;
+                }
+                self.config_loaded = true;
+            }
+            ACTION_FETCH_REMOTE => {
+                if exit_code == Some(0) {
+                    let Some(branch) = context.get("branch") else {
+                        self.status = Status::Error("Branch context was missing.".to_string());
+                        return;
+                    };
+                    // After fetch, check if branch exists
+                    self.check_branch(branch);
+                } else {
+                    self.status = Status::Error(command_error(
+                        "Failed to fetch from remote.",
                         &stderr,
                     ));
                 }
@@ -245,6 +319,10 @@ impl State {
         } else {
             command.push("-b");
             command.push(branch);
+            // If base_branch is configured, use it as the starting point
+            if let Some(base_branch) = &self.config.base_branch {
+                command.push(base_branch.as_str());
+            }
         }
 
         let context = BTreeMap::from([
@@ -266,6 +344,18 @@ impl State {
             BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_DISCOVER_REPO.to_string())]),
         );
     }
+    
+    fn load_repo_config(&mut self, repo_root: PathBuf) {
+        let config_path = repo_root.join(".zitree.toml");
+        let config_path_str = config_path.display().to_string();
+        self.status = Status::Busy("Loading repository configuration...".to_string());
+        run_command_with_env_variables_and_cwd(
+            &["cat", &config_path_str],
+            BTreeMap::new(),
+            repo_root,
+            BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_LOAD_REPO_CONFIG.to_string())]),
+        );
+    }
 
     fn refresh_sessions(&mut self) {
         if let Ok(snapshot) = get_session_list() {
@@ -282,11 +372,11 @@ impl State {
             .repo_root
             .as_deref()
             .expect("repo root should be available before creating worktrees");
-        naming::worktree_path(repo_root, &self.config.worktree_dir_name, branch)
+        naming::worktree_path(repo_root, &self.config, branch)
     }
 
     fn session_name(&self, branch: &str) -> String {
-        naming::session_name(self.repo_name.as_deref(), branch)
+        naming::session_name(self.repo_name.as_deref(), branch, &self.config)
     }
 }
 

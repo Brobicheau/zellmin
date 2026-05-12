@@ -30,7 +30,7 @@ target/wasm32-wasip1/release/zitree.wasm
 
 ## Load In Zellij
 
-Example keybinding:
+Example keybinding with configuration:
 
 ```kdl
 keybinds {
@@ -40,6 +40,11 @@ keybinds {
                 floating true
                 move_to_focused_tab true
                 worktree_dir_name ".worktrees"
+                session_prefix "wt"
+                base_branch "main"
+                remote "origin"
+                auto_fetch "true"
+                worktree_naming_pattern "branch"
             }
         }
     }
@@ -50,6 +55,97 @@ You can also launch it directly:
 
 ```bash
 zellij action launch-plugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/zitree.wasm" --floating
+```
+
+## Configuration
+
+The plugin supports configuration through two methods:
+1. **Zellij KDL configuration** (in your keybindings)
+2. **Repository config file** (`.zitree.toml` in repo root)
+
+Repository config takes precedence over KDL config, which takes precedence over defaults.
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `worktree_dir_name` | String | `.worktrees` | Directory name for worktrees relative to repo root |
+| `session_prefix` | String | _(none)_ | Optional prefix for Zellij session names (e.g., "wt" → "wt-repo-branch-hash") |
+| `base_branch` | String | _(none)_ | Base branch to track from when creating new branches (e.g., "main", "develop") |
+| `remote` | String | `origin` | Git remote to use when checking out branches |
+| `auto_fetch` | Boolean | `false` | Whether to fetch from remote before creating worktree |
+| `worktree_naming_pattern` | String | `branch` | Pattern for worktree directory naming: "branch", "hash", or "branch-hash" |
+
+### Zellij KDL Configuration
+
+Add configuration options to your Zellij keybinding:
+
+```kdl
+LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+    floating true
+    move_to_focused_tab true
+    worktree_dir_name ".worktrees"
+    session_prefix "wt"
+    base_branch "main"
+    auto_fetch "true"
+}
+```
+
+### Repository Configuration
+
+Create a `.zitree.toml` file in your repository root:
+
+```toml
+# Directory for worktrees
+worktree_dir_name = ".worktrees"
+
+# Optional session prefix
+session_prefix = "wt"
+
+# Base branch for new branches
+base_branch = "main"
+
+# Git remote to use
+remote = "origin"
+
+# Auto-fetch before creating worktree
+auto_fetch = true
+
+# Worktree naming pattern: "branch", "hash", or "branch-hash"
+worktree_naming_pattern = "branch"
+```
+
+**Benefits of repository config:**
+- Share configuration across team members
+- Commit to version control
+- Override Zellij config per-repository
+- Supports more complex configuration in TOML format
+
+### Configuration Examples
+
+**Minimal setup (defaults):**
+```kdl
+LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+    floating true
+}
+```
+
+**Team workflow with auto-fetch:**
+```toml
+# .zitree.toml
+base_branch = "develop"
+auto_fetch = true
+remote = "origin"
+session_prefix = "dev"
+```
+
+**Personal workflow with custom naming:**
+```kdl
+LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+    worktree_dir_name "trees"
+    worktree_naming_pattern "branch-hash"
+    session_prefix "work"
+}
 ```
 
 ## Usage
@@ -71,3 +167,4 @@ The plugin will:
 - The plugin requests `ReadApplicationState`, `ChangeApplicationState`, and `RunCommands` permissions.
 - First version keeps the UI intentionally small: a single branch input flow.
 - Existing-branch handling is delegated to `git worktree add`; the plugin surfaces the failure message directly.
+- See [CONFIG.md](CONFIG.md) for detailed configuration guide and examples.
