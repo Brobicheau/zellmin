@@ -38,7 +38,8 @@ Behavior:
 - queries `zoxide query -l -s` and ranks directories by score
 - merges live Zellij sessions with the generated directory list
 - supports fuzzy search across sessions and directories
-- `Enter` switches an existing session or opens a new-session screen for a directory
+- `Enter` switches an existing session and creates a directory session immediately when `default_layout` is configured
+- `Enter` opens the in-plugin layout picker only when `default_layout` is not configured
 - `Ctrl+Enter` quick-creates the selected directory using the configured default layout when available
 - skips filepicker support for now
 
@@ -54,7 +55,9 @@ keybinds {
                 default_layout "development"
                 session_separator "."
                 show_resurrectable_sessions "false"
+                search_directories "/home/user/projects|/home/user/src"
                 base_paths "/home/user/projects|/home/user/src"
+                ignored_directories "/home/user/projects/archive|/home/user/projects/tmp"
             }
         }
     }
@@ -65,10 +68,12 @@ Configuration options:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `default_layout` | String | _(none)_ | Layout name used by `Ctrl+Enter` quick create |
+| `default_layout` | String | _(none)_ | Layout used for session creation; when set, `Enter` skips the in-plugin layout picker |
 | `session_separator` | String | `.` | Separator used when generating session names |
 | `show_resurrectable_sessions` | Boolean | `false` | Include resurrectable sessions in the list |
+| `search_directories` | String | _(none)_ | Pipe-separated directories to include from zoxide results, including descendants |
 | `base_paths` | String | _(none)_ | Pipe-separated path prefixes stripped before name generation |
+| `ignored_directories` | String | _(none)_ | Pipe-separated directories excluded from zoxide results, including descendants |
 
 ## zitree
 

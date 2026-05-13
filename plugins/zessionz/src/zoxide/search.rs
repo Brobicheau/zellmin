@@ -88,35 +88,54 @@ impl SearchEngine {
             right
                 .score
                 .cmp(&left.score)
+                .then_with(|| left.item.compare_for_display(&right.item))
                 .then_with(|| left.item.label().cmp(right.item.label()))
         });
 
         self.results = results;
-        self.selected_index = if self.results.is_empty() { None } else { Some(0) };
+        self.selected_index = self.first_selectable_index();
     }
 
     pub fn move_up(&mut self) {
-        let Some(selected_index) = self.selected_index.as_mut() else {
+        let Some(selected_index) = self.selected_index else {
             return;
         };
 
-        if *selected_index == 0 {
-            *selected_index = self.results.len().saturating_sub(1);
-        } else {
-            *selected_index -= 1;
-        }
+        self.selected_index = self.next_selectable_index(selected_index, false);
     }
 
     pub fn move_down(&mut self) {
-        let Some(selected_index) = self.selected_index.as_mut() else {
+        let Some(selected_index) = self.selected_index else {
             return;
         };
 
-        if *selected_index + 1 >= self.results.len() {
-            *selected_index = 0;
-        } else {
-            *selected_index += 1;
+        self.selected_index = self.next_selectable_index(selected_index, true);
+    }
+
+    fn first_selectable_index(&self) -> Option<usize> {
+        self.results
+            .iter()
+            .position(|result| result.item.is_selectable())
+    }
+
+    fn next_selectable_index(&self, current_index: usize, forward: bool) -> Option<usize> {
+        if self.results.is_empty() {
+            return None;
         }
+
+        for step in 1..=self.results.len() {
+            let index = if forward {
+                (current_index + step) % self.results.len()
+            } else {
+                (current_index + self.results.len() - step) % self.results.len()
+            };
+
+            if self.results[index].item.is_selectable() {
+                return Some(index);
+            }
+        }
+
+        None
     }
 }
 
@@ -126,6 +145,7 @@ fn search_text(item: &SessionItem) -> String {
             name,
             directory,
             is_current,
+            ..
         } => {
             let current_text = if *is_current { " current" } else { "" };
             format!("{name} {directory}{current_text}")
@@ -133,7 +153,10 @@ fn search_text(item: &SessionItem) -> String {
         SessionItem::ResurrectableSession {
             name,
             duration_text,
+            ..
         } => format!("{name} {duration_text}"),
-        SessionItem::Directory { path, session_name } => format!("{path} {session_name}"),
+        SessionItem::Directory {
+            path, session_name, ..
+        } => format!("{path} {session_name}"),
     }
 }

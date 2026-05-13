@@ -1,19 +1,19 @@
 mod directory;
 mod search;
 
-use std::path::Path;
-
 use crate::config::Config;
 
 pub use directory::ZoxideDirectory;
 pub use search::SearchEngine;
 
-const MAX_SESSION_NAME_LEN: usize = 29;
+pub const MAX_SESSION_NAME_LEN: usize = 24;
 
 pub fn parse_directories(output: &str, config: &Config) -> Vec<ZoxideDirectory> {
     let mut directories = output
         .lines()
         .filter_map(|line| parse_directory(line, config))
+        .filter(|directory| is_searched_directory(&directory.directory, &config.search_directories))
+        .filter(|directory| !is_ignored_directory(&directory.directory, &config.ignored_directories))
         .collect::<Vec<_>>();
 
     assign_session_names(&mut directories, config);
@@ -42,19 +42,18 @@ fn parse_directory(line: &str, _config: &Config) -> Option<ZoxideDirectory> {
 }
 
 fn assign_session_names(directories: &mut [ZoxideDirectory], config: &Config) {
-    let all_paths = directories
+    let normalized_paths = directories
         .iter()
-        .map(|directory| directory.directory.as_str())
+        .map(|directory| normalize_path(&directory.directory, &config.base_paths))
         .collect::<Vec<_>>();
 
-    for directory in directories.iter_mut() {
-        directory.session_name = generate_session_name(&directory.directory, &all_paths, config);
+    for (directory, normalized_path) in directories.iter_mut().zip(normalized_paths.iter()) {
+        directory.session_name = generate_session_name(normalized_path, &normalized_paths, config);
     }
 }
 
-fn generate_session_name(path: &str, all_paths: &[&str], config: &Config) -> String {
-    let normalized_path = normalize_path(path, &config.base_paths);
-    let segments = path_segments(&normalized_path);
+fn generate_session_name(path: &str, all_paths: &[String], config: &Config) -> String {
+    let segments = path_segments(path);
     if segments.is_empty() {
         return "root".to_string();
     }
@@ -63,22 +62,24 @@ fn generate_session_name(path: &str, all_paths: &[&str], config: &Config) -> Str
     let separator = &config.session_separator;
     let conflicting_paths = all_paths
         .iter()
-        .copied()
         .filter(|other_path| {
-            let other_segments = path_segments(&normalize_path(other_path, &config.base_paths));
+            let other_segments = path_segments(other_path);
             other_segments.last().copied() == Some(basename)
         })
         .collect::<Vec<_>>();
 
-    let min_segments = if is_nested_in_paths(path, all_paths) { 2 } else { 1 };
-    for context_len in min_segments..=segments.len() {
+    if conflicting_paths.len() <= 1 {
+        return truncate_candidate(basename.to_string(), separator);
+    }
+
+    for context_len in 2..=segments.len() {
         let candidate = segments[segments.len() - context_len..].join(separator);
         if conflicting_paths.iter().all(|other_path| {
-            if *other_path == path {
+            if other_path.as_str() == path {
                 return true;
             }
 
-            let other_segments = path_segments(&normalize_path(other_path, &config.base_paths));
+            let other_segments = path_segments(other_path);
             other_segments.len() < context_len
                 || other_segments[other_segments.len() - context_len..].join(separator) != candidate
         }) {
@@ -87,13 +88,6 @@ fn generate_session_name(path: &str, all_paths: &[&str], config: &Config) -> Str
     }
 
     truncate_candidate(segments.join(separator), separator)
-}
-
-fn is_nested_in_paths(path: &str, all_paths: &[&str]) -> bool {
-    let normalized_path = Path::new(path);
-    all_paths.iter().copied().any(|other_path| {
-        other_path != path && normalized_path.starts_with(Path::new(other_path))
-    })
 }
 
 fn normalize_path(path: &str, base_paths: &[String]) -> String {
@@ -125,6 +119,30 @@ fn normalize_path(path: &str, base_paths: &[String]) -> String {
     path.trim_start_matches(best_match)
         .trim_start_matches('/')
         .to_string()
+}
+
+fn is_ignored_directory(path: &str, ignored_directories: &[String]) -> bool {
+    ignored_directories.iter().any(|ignored_directory| {
+        let ignored_directory = ignored_directory.trim_end_matches('/');
+        path == ignored_directory
+            || path
+                .strip_prefix(ignored_directory)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+    })
+}
+
+fn is_searched_directory(path: &str, search_directories: &[String]) -> bool {
+    if search_directories.is_empty() {
+        return true;
+    }
+
+    search_directories.iter().any(|search_directory| {
+        let search_directory = search_directory.trim_end_matches('/');
+        path == search_directory
+            || path
+                .strip_prefix(search_directory)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+    })
 }
 
 fn path_segments(path: &str) -> Vec<&str> {
@@ -200,7 +218,7 @@ mod tests {
             &config,
         );
 
-        assert_eq!(directories[0].session_name, "client.app");
+        assert_eq!(directories[0].session_name, "app");
         assert_eq!(directories[1].session_name, "admin.app");
     }
 
@@ -214,6 +232,51 @@ mod tests {
         );
 
         assert_eq!(directories[0].session_name, "api");
-        assert_eq!(directories[1].session_name, "api.backend");
+        assert_eq!(directories[1].session_name, "backend");
+    }
+
+    #[test]
+    fn filters_ignored_directories_and_descendants() {
+        let config = Config {
+            ignored_directories: vec!["/home/user/projects/archive".to_string()],
+            ..Config::default()
+        };
+
+        let directories = parse_directories(
+            "10 /home/user/projects/app\n9 /home/user/projects/archive\n8 /home/user/projects/archive/old\n",
+            &config,
+        );
+
+        assert_eq!(directories.len(), 1);
+        assert_eq!(directories[0].directory, "/home/user/projects/app");
+    }
+
+    #[test]
+    fn filters_to_search_directories_and_descendants() {
+        let config = Config {
+            search_directories: vec!["/home/user/projects".to_string()],
+            ..Config::default()
+        };
+
+        let directories = parse_directories(
+            "10 /home/user/projects/app\n9 /home/user/projects/api/backend\n8 /home/user/other\n",
+            &config,
+        );
+
+        assert_eq!(directories.len(), 2);
+        assert_eq!(directories[0].directory, "/home/user/projects/app");
+        assert_eq!(directories[1].directory, "/home/user/projects/api/backend");
+    }
+
+    #[test]
+    fn generated_names_stay_within_socket_safe_limit() {
+        let config = Config::default();
+
+        let directories = parse_directories(
+            "10 /home/user/projects/this-is-a-very-long-directory-name/backend/service-api\n",
+            &config,
+        );
+
+        assert!(directories[0].session_name.len() <= MAX_SESSION_NAME_LEN);
     }
 }

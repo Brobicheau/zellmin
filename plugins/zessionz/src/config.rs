@@ -6,6 +6,8 @@ pub struct Config {
     pub session_separator: String,
     pub show_resurrectable_sessions: bool,
     pub base_paths: Vec<String>,
+    pub search_directories: Vec<String>,
+    pub ignored_directories: Vec<String>,
 }
 
 impl Default for Config {
@@ -15,6 +17,8 @@ impl Default for Config {
             session_separator: ".".to_string(),
             show_resurrectable_sessions: false,
             base_paths: Vec::new(),
+            search_directories: Vec::new(),
+            ignored_directories: Vec::new(),
         }
     }
 }
@@ -34,6 +38,24 @@ impl Config {
                 .is_some_and(|value| value.trim().eq_ignore_ascii_case("true")),
             base_paths: configuration
                 .get("base_paths")
+                .map(|value| {
+                    value
+                        .split('|')
+                        .filter_map(trim_to_option)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+            search_directories: configuration
+                .get("search_directories")
+                .map(|value| {
+                    value
+                        .split('|')
+                        .filter_map(trim_to_option)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default(),
+            ignored_directories: configuration
+                .get("ignored_directories")
                 .map(|value| {
                     value
                         .split('|')
@@ -66,6 +88,8 @@ mod tests {
         assert_eq!(config.session_separator, ".");
         assert!(!config.show_resurrectable_sessions);
         assert!(config.base_paths.is_empty());
+        assert!(config.search_directories.is_empty());
+        assert!(config.ignored_directories.is_empty());
     }
 
     #[test]
@@ -81,11 +105,24 @@ mod tests {
                 "base_paths".to_string(),
                 "/home/user/projects| /tmp/work ".to_string(),
             ),
+            (
+                "search_directories".to_string(),
+                "/home/user/projects| /tmp/work ".to_string(),
+            ),
+            (
+                "ignored_directories".to_string(),
+                "/home/user/projects/archive| /tmp/scratch ".to_string(),
+            ),
         ]));
 
         assert_eq!(config.default_layout.as_deref(), Some("dev"));
         assert_eq!(config.session_separator, "_");
         assert!(config.show_resurrectable_sessions);
         assert_eq!(config.base_paths, vec!["/home/user/projects", "/tmp/work"]);
+        assert_eq!(config.search_directories, vec!["/home/user/projects", "/tmp/work"]);
+        assert_eq!(
+            config.ignored_directories,
+            vec!["/home/user/projects/archive", "/tmp/scratch"]
+        );
     }
 }

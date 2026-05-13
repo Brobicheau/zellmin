@@ -21,6 +21,7 @@ const ACTION_CREATE_WORKTREE: &str = "create-worktree";
 const ACTION_CREATE_SESSION: &str = "create-session";
 const ACTION_LIST_WORKTREES: &str = "list-worktrees";
 const ACTION_DELETE_SESSION: &str = "delete-session";
+const ACTION_DELETE_WORKTREE: &str = "delete-worktree";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommandAction {
@@ -36,6 +37,7 @@ pub enum CommandAction {
     },
     ListWorktrees,
     DeleteSession { session: String },
+    DeleteWorktree { path: PathBuf },
 }
 
 pub fn load_repo_config(repo_root: PathBuf) {
@@ -81,6 +83,10 @@ pub fn parse_action(context: &BTreeMap<String, String>) -> Option<CommandAction>
         ACTION_DELETE_SESSION => {
             let session = context.get(CONTEXT_SESSION)?.clone();
             Some(CommandAction::DeleteSession { session })
+        }
+        ACTION_DELETE_WORKTREE => {
+            let path = context.get(CONTEXT_PATH).map(PathBuf::from)?;
+            Some(CommandAction::DeleteWorktree { path })
         }
         _ => None,
     }
@@ -136,6 +142,21 @@ mod tests {
                 branch: "main".to_string(),
                 path: PathBuf::from("/tmp/repo"),
                 session: "repo-main".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn parses_delete_worktree_action_with_path() {
+        let context = BTreeMap::from([
+            (CONTEXT_ACTION.to_string(), ACTION_DELETE_WORKTREE.to_string()),
+            (CONTEXT_PATH.to_string(), "/tmp/repo/.worktrees/feature".to_string()),
+        ]);
+
+        assert_eq!(
+            parse_action(&context),
+            Some(CommandAction::DeleteWorktree {
+                path: PathBuf::from("/tmp/repo/.worktrees/feature")
             })
         );
     }

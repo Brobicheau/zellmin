@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use zellij_tile::prelude::*;
 
 use super::{
-    ACTION_CHECK_BRANCH, ACTION_CREATE_WORKTREE, ACTION_DISCOVER_REPO, ACTION_FETCH_REMOTE,
-    ACTION_LIST_WORKTREES, CONTEXT_ACTION, CONTEXT_BRANCH,
+    ACTION_CHECK_BRANCH, ACTION_CREATE_WORKTREE, ACTION_DELETE_WORKTREE, ACTION_DISCOVER_REPO,
+    ACTION_FETCH_REMOTE, ACTION_LIST_WORKTREES, CONTEXT_ACTION, CONTEXT_BRANCH, CONTEXT_PATH,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,6 +112,22 @@ pub fn list_worktrees(repo_root: PathBuf) {
             CONTEXT_ACTION.to_string(),
             ACTION_LIST_WORKTREES.to_string(),
         )]),
+    );
+}
+
+pub fn delete_worktree(repo_root: PathBuf, worktree_path: &Path) {
+    let worktree_path_string = worktree_path.display().to_string();
+    run_command_with_env_variables_and_cwd(
+        &["git", "worktree", "remove", "--force", &worktree_path_string],
+        BTreeMap::new(),
+        repo_root,
+        BTreeMap::from([
+            (
+                CONTEXT_ACTION.to_string(),
+                ACTION_DELETE_WORKTREE.to_string(),
+            ),
+            (CONTEXT_PATH.to_string(), worktree_path_string.clone()),
+        ]),
     );
 }
 

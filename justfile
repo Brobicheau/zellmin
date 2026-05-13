@@ -51,7 +51,7 @@ zessionz-release-plugin-path:
     @printf "%s\n" "{{zessionz_release_plugin_path}}"
 
 reload-zessionz:
-    zellij action launch-or-focus-plugin "file:$PWD/{{zessionz_plugin_path}}" --floating --skip-plugin-cache
+    zellij action launch-or-focus-plugin "file:$PWD/target/wasm32-wasip1/debug/zessionz.wasm" --floating --skip-plugin-cache
 
 reload-zessionz-release:
     zellij action launch-or-focus-plugin "file:$PWD/{{zessionz_release_plugin_path}}" --floating --skip-plugin-cache

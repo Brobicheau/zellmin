@@ -25,6 +25,14 @@ pub struct State {
     selected_index: usize,
     status: Status,
     config_loaded: bool,
+    show_help: bool,
+    pending_delete: Option<PendingDelete>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PendingDelete {
+    session_name: Option<String>,
+    worktree_path: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,6 +60,7 @@ impl ZellijPlugin for State {
         self.kdl_config = Config::from_kdl(configuration);
         self.config = self.kdl_config.clone();
         self.config_loaded = false;
+        rename_plugin_pane(get_plugin_ids().plugin_id, "zitree");
         set_selectable(true);
         subscribe(&[
             EventType::PermissionRequestResult,
@@ -107,6 +116,7 @@ impl ZellijPlugin for State {
             &self.branch_input,
             &self.worktree_sessions,
             self.selected_index,
+            self.show_help,
             cols,
         );
     }
@@ -148,20 +158,29 @@ impl State {
                 self.status = Status::Ready;
                 true
             }
-            BareKey::Delete => {
+            BareKey::Char('d') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 if matches!(self.status, Status::Busy(_)) {
                     return false;
                 }
                 self.begin_delete_action();
                 true
             }
+            BareKey::Char('h') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.show_help = !self.show_help;
+                true
+            }
             BareKey::Esc => {
                 if matches!(self.status, Status::Busy(_)) {
                     return false;
                 }
-                self.branch_input.clear();
-                self.status = Status::Ready;
-                true
+                if self.branch_input.is_empty() {
+                    hide_self();
+                    false
+                } else {
+                    self.branch_input.clear();
+                    self.status = Status::Ready;
+                    true
+                }
             }
             BareKey::Char(character) => {
                 if matches!(self.status, Status::Busy(_)) {
@@ -179,6 +198,7 @@ impl State {
     }
 
     fn begin_primary_action(&mut self) {
+        self.pending_delete = None;
         if self.branch_input.trim().is_empty() {
             self.switch_selected_worktree_session();
         } else {
@@ -299,6 +319,9 @@ impl State {
                 self.refresh_worktree_sessions();
             }
             CommandAction::FetchRemote { branch } => {
+                if self.pending_delete.is_some() {
+                    return;
+                }
                 if exit_code == Some(0) {
                     // After fetch, check if branch exists
                     self.check_branch(&branch);
@@ -310,9 +333,15 @@ impl State {
                 }
             }
             CommandAction::CheckBranch { branch } => {
+                if self.pending_delete.is_some() {
+                    return;
+                }
                 self.create_worktree(&branch, exit_code == Some(0));
             }
             CommandAction::CreateWorktree { branch } => {
+                if self.pending_delete.is_some() {
+                    return;
+                }
                 if exit_code == Some(0) {
                     self.create_or_switch_worktree_session(&branch);
                 } else {
@@ -327,6 +356,12 @@ impl State {
                 path: worktree_path,
                 session: session_name,
             } => {
+                if self.pending_delete.is_some() {
+                    self.status = Status::Ready;
+                    self.rebuild_worktree_sessions();
+                    return;
+                }
+
                 if exit_code == Some(0) {
                     if !self
                         .live_session_names
@@ -375,16 +410,65 @@ impl State {
                 session: session_name,
             } => {
                 if exit_code == Some(0) {
+                    let worktree_path = self
+                        .worktree_sessions
+                        .iter()
+                        .find(|entry| entry.live_session_name.as_deref() == Some(session_name.as_str()))
+                        .and_then(|entry| {
+                            if entry.is_current || self.repo_root.as_deref() == entry.path.as_deref() {
+                                None
+                            } else {
+                                entry.path.clone()
+                            }
+                        });
                     self.live_session_names
                         .retain(|live_session| live_session != &session_name);
+                    if let (Some(repo_root), Some(worktree_path)) = (self.repo_root.clone(), worktree_path) {
+                        self.pending_delete = Some(PendingDelete {
+                            session_name: Some(session_name.clone()),
+                            worktree_path: Some(worktree_path.clone()),
+                        });
+                        self.status = Status::Busy(format!(
+                            "Deleting session `{session_name}` and worktree `{}`...",
+                            worktree_path.display()
+                        ));
+                        git::delete_worktree(repo_root, &worktree_path);
+                    } else {
+                        self.pending_delete = Some(PendingDelete {
+                            session_name: Some(session_name.clone()),
+                            worktree_path: None,
+                        });
+                        let previous_selection = self.selected_session_key();
+                        self.rebuild_worktree_sessions_with_selection(
+                            previous_selection.as_ref().map(|value| value.as_str()),
+                        );
+                        self.status = Status::Ready;
+                    }
+                } else {
+                    self.pending_delete = None;
+                    self.status = Status::Error(commands::command_error(
+                        "Failed to delete session.",
+                        &stderr,
+                    ));
+                }
+            }
+            CommandAction::DeleteWorktree { path } => {
+                if exit_code == Some(0) {
+                    self.known_worktrees
+                        .retain(|worktree| worktree.path != path);
                     let previous_selection = self.selected_session_key();
                     self.rebuild_worktree_sessions_with_selection(
                         previous_selection.as_ref().map(|value| value.as_str()),
                     );
-                    self.status = Status::Success(format!("Deleted session `{session_name}`."));
+                    self.status = Status::Ready;
+                    self.pending_delete = Some(PendingDelete {
+                        session_name: None,
+                        worktree_path: Some(path),
+                    });
                 } else {
+                    self.pending_delete = None;
                     self.status = Status::Error(commands::command_error(
-                        "Failed to delete session.",
+                        "Failed to delete worktree.",
                         &stderr,
                     ));
                 }
@@ -444,7 +528,9 @@ impl State {
             return;
         }
 
-        self.selected_index = self.selected_index.saturating_sub(1);
+        if let Some(index) = previous_selectable_index(&self.worktree_sessions, self.selected_index) {
+            self.selected_index = index;
+        }
         self.status = Status::Ready;
     }
 
@@ -455,7 +541,9 @@ impl State {
             return;
         }
 
-        self.selected_index = (self.selected_index + 1).min(self.worktree_sessions.len() - 1);
+        if let Some(index) = next_selectable_index(&self.worktree_sessions, self.selected_index) {
+            self.selected_index = index;
+        }
         self.status = Status::Ready;
     }
 
@@ -551,6 +639,39 @@ impl State {
             return;
         }
 
+        let Some(repo_root) = self.repo_root.clone() else {
+            self.status = Status::Error("Repository root is not available yet.".to_string());
+            return;
+        };
+
+        if !entry.has_live_session {
+            let Some(worktree_path) = entry.path.as_ref() else {
+                self.status = Status::Error(format!(
+                    "No worktree path was found for `{}`.",
+                    entry.branch
+                ));
+                return;
+            };
+
+            if self.repo_root.as_deref() == Some(worktree_path.as_path()) {
+                self.status = Status::Error(
+                    "Cannot delete the main repository worktree from zitree.".to_string(),
+                );
+                return;
+            }
+
+            self.pending_delete = Some(PendingDelete {
+                session_name: None,
+                worktree_path: Some(worktree_path.to_path_buf()),
+            });
+            self.status = Status::Busy(format!(
+                "Deleting worktree `{}`...",
+                worktree_path.display()
+            ));
+            git::delete_worktree(repo_root, worktree_path);
+            return;
+        }
+
         let Some(live_session_name) = entry.live_session_name.as_deref() else {
             self.status = Status::Error(format!(
                 "No live Zellij session match was found for `{}`.",
@@ -559,11 +680,10 @@ impl State {
             return;
         };
 
-        let Some(repo_root) = self.repo_root.clone() else {
-            self.status = Status::Error("Repository root is not available yet.".to_string());
-            return;
-        };
-
+        self.pending_delete = Some(PendingDelete {
+            session_name: Some(live_session_name.to_string()),
+            worktree_path: None,
+        });
         self.status = Status::Busy(format!("Deleting session `{live_session_name}`..."));
         zellij::delete_session(repo_root, live_session_name);
     }
@@ -582,7 +702,11 @@ impl State {
             .iter()
             .position(|entry| entry.live_session_name.as_deref() == Some(live_session_name))
         {
-            self.selected_index = index;
+            self.selected_index = if self.worktree_sessions[index].is_current {
+                first_selectable_index(&self.worktree_sessions).unwrap_or(index)
+            } else {
+                index
+            };
             return;
         }
 
@@ -687,7 +811,12 @@ fn build_worktree_sessions(
         })
         .collect::<Vec<_>>();
 
-    sessions.sort_by(|left, right| left.branch.cmp(&right.branch));
+    sessions.sort_by(|left, right| {
+        right
+            .is_current
+            .cmp(&left.is_current)
+            .then_with(|| left.branch.cmp(&right.branch))
+    });
     sessions
 }
 
@@ -740,16 +869,37 @@ fn selected_index_for_sessions(
     if let Some(previous_selection) = previous_selection {
         if let Some(index) = sessions
             .iter()
-            .position(|entry| session_selection_key(entry) == previous_selection)
+            .position(|entry| !entry.is_current && session_selection_key(entry) == previous_selection)
         {
             return index;
         }
     }
 
+    first_selectable_index(sessions).unwrap_or(0)
+}
+
+fn first_selectable_index(sessions: &[WorktreeSessionEntry]) -> Option<usize> {
+    sessions.iter().position(|entry| !entry.is_current)
+}
+
+fn previous_selectable_index(
+    sessions: &[WorktreeSessionEntry],
+    current_index: usize,
+) -> Option<usize> {
+    (0..current_index)
+        .rev()
+        .find(|index| !sessions[*index].is_current)
+        .or_else(|| first_selectable_index(sessions))
+}
+
+fn next_selectable_index(sessions: &[WorktreeSessionEntry], current_index: usize) -> Option<usize> {
     sessions
         .iter()
-        .position(|entry| entry.is_current)
-        .unwrap_or(0)
+        .enumerate()
+        .skip(current_index + 1)
+        .find(|(_, entry)| !entry.is_current)
+        .map(|(index, _)| index)
+        .or_else(|| first_selectable_index(sessions))
 }
 
 fn session_selection_key(entry: &WorktreeSessionEntry) -> String {
@@ -787,6 +937,30 @@ mod tests {
         let selected_index = selected_index_for_sessions(&sessions, Some("repo-feature-d0b50b87"));
 
         assert_eq!(selected_index, 1);
+    }
+
+    #[test]
+    fn skips_current_session_when_picking_default_selection() {
+        let sessions = vec![
+            WorktreeSessionEntry {
+                branch: "main".to_string(),
+                path: Some(PathBuf::from("/tmp/repo")),
+                session_name: "repo".to_string(),
+                live_session_name: Some("repo".to_string()),
+                has_live_session: true,
+                is_current: true,
+            },
+            WorktreeSessionEntry {
+                branch: "feature".to_string(),
+                path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
+                session_name: "repo-feature-d0b50b87".to_string(),
+                live_session_name: Some("repo-feature-d0b50b87".to_string()),
+                has_live_session: true,
+                is_current: false,
+            },
+        ];
+
+        assert_eq!(selected_index_for_sessions(&sessions, None), 1);
     }
 
     #[test]
@@ -832,6 +1006,73 @@ mod tests {
             sessions[1].live_session_name.as_deref(),
             Some("repo-feature-test-727724f6")
         );
+    }
+
+    #[test]
+    fn current_worktree_session_sorts_first() {
+        let config = Config::default();
+        let sessions = build_worktree_sessions(
+            Some(Path::new("/tmp/repo")),
+            Some("repo"),
+            &config,
+            &[
+                WorktreeLocation {
+                    branch: "zzz-current".to_string(),
+                    path: PathBuf::from("/tmp/repo/.worktrees/zzz-current"),
+                    is_current: true,
+                },
+                WorktreeLocation {
+                    branch: "aaa-other".to_string(),
+                    path: PathBuf::from("/tmp/repo/.worktrees/aaa-other"),
+                    is_current: false,
+                },
+            ],
+            &[],
+        );
+
+        assert_eq!(sessions[0].branch, "zzz-current");
+        assert!(sessions[0].is_current);
+        assert_eq!(sessions[1].branch, "aaa-other");
+    }
+
+    #[test]
+    fn next_and_previous_selection_skip_current_session() {
+        let mut state = State {
+            worktree_sessions: vec![
+                WorktreeSessionEntry {
+                    branch: "main".to_string(),
+                    path: Some(PathBuf::from("/tmp/repo")),
+                    session_name: "repo".to_string(),
+                    live_session_name: Some("repo".to_string()),
+                    has_live_session: true,
+                    is_current: true,
+                },
+                WorktreeSessionEntry {
+                    branch: "feature-a".to_string(),
+                    path: Some(PathBuf::from("/tmp/repo/.worktrees/feature-a")),
+                    session_name: "repo-feature-a".to_string(),
+                    live_session_name: Some("repo-feature-a".to_string()),
+                    has_live_session: true,
+                    is_current: false,
+                },
+                WorktreeSessionEntry {
+                    branch: "feature-b".to_string(),
+                    path: Some(PathBuf::from("/tmp/repo/.worktrees/feature-b")),
+                    session_name: "repo-feature-b".to_string(),
+                    live_session_name: Some("repo-feature-b".to_string()),
+                    has_live_session: true,
+                    is_current: false,
+                },
+            ],
+            selected_index: 1,
+            ..State::default()
+        };
+
+        state.select_previous_worktree_session();
+        assert_eq!(state.selected_index, 1);
+
+        state.select_next_worktree_session();
+        assert_eq!(state.selected_index, 2);
     }
 
     #[test]
@@ -1076,6 +1317,7 @@ mod tests {
     #[test]
     fn refuses_to_delete_session_without_live_match() {
         let mut state = State {
+            repo_root: Some(PathBuf::from("/tmp/repo")),
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "feature/test".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
@@ -1091,7 +1333,65 @@ mod tests {
 
         assert!(matches!(
             state.status,
-            Status::Error(ref message) if message == "No live Zellij session match was found for `feature/test`."
+            Status::Busy(ref message) if message == "Deleting worktree `/tmp/repo/.worktrees/feature`..."
         ));
+    }
+
+    #[test]
+    fn refuses_to_delete_main_worktree_without_live_session() {
+        let mut state = State {
+            repo_root: Some(PathBuf::from("/tmp/repo")),
+            worktree_sessions: vec![WorktreeSessionEntry {
+                branch: "main".to_string(),
+                path: Some(PathBuf::from("/tmp/repo")),
+                session_name: "repo".to_string(),
+                live_session_name: None,
+                has_live_session: false,
+                is_current: false,
+            }],
+            ..State::default()
+        };
+
+        state.delete_selected_worktree_session();
+
+        assert!(matches!(
+            state.status,
+            Status::Error(ref message)
+                if message == "Cannot delete the main repository worktree from zitree."
+        ));
+    }
+
+    #[test]
+    fn deleting_linked_session_also_deletes_worktree() {
+        let mut state = State {
+            repo_root: Some(PathBuf::from("/tmp/repo")),
+            worktree_sessions: vec![WorktreeSessionEntry {
+                branch: "feature/test".to_string(),
+                path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
+                session_name: "repo-feature-test-727724f6".to_string(),
+                live_session_name: Some("repo-feature-test-727724f6".to_string()),
+                has_live_session: true,
+                is_current: false,
+            }],
+            live_session_names: vec!["repo-feature-test-727724f6".to_string()],
+            ..State::default()
+        };
+
+        state.handle_run_command_result(
+            Some(0),
+            Vec::new(),
+            Vec::new(),
+            BTreeMap::from([
+                ("action".to_string(), "delete-session".to_string()),
+                ("session".to_string(), "repo-feature-test-727724f6".to_string()),
+            ]),
+        );
+
+        assert!(matches!(
+            state.status,
+            Status::Busy(ref message)
+                if message == "Deleting session `repo-feature-test-727724f6` and worktree `/tmp/repo/.worktrees/feature`..."
+        ));
+        assert!(state.live_session_names.is_empty());
     }
 }

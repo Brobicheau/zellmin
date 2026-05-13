@@ -3,9 +3,10 @@ use std::path::Path;
 use crate::config::Config;
 use crate::state::{Status, WorktreeSessionEntry};
 use plugin_ui::{
-    style, BoxPanel, PanelLayout, BOLD, BLUE, CYAN, DIM, GREEN, MAGENTA, RED, RESET, WHITE,
-    YELLOW,
+    style, BoxPanel, PanelLayout, BLUE, BOLD, CYAN, DIM, GREEN, MAGENTA, RED, RESET, WHITE, YELLOW,
 };
+
+const TOP_PADDING_LINES: usize = 2;
 
 pub fn render(
     status: &Status,
@@ -15,14 +16,11 @@ pub fn render(
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
     selected_index: usize,
+    show_help: bool,
     cols: usize,
 ) {
     let title_panel = BoxPanel::new(PanelLayout::new(cols));
-
-    title_panel.print_top();
-    title_panel.print_centered_line(&style("zitree", BOLD, Some(WHITE)));
-    title_panel.print_bottom();
-    println!();
+    print_top_padding();
 
     match status {
         Status::Loading => title_panel.print_status("⟳", YELLOW, "Waiting for permissions..."),
@@ -36,6 +34,7 @@ pub fn render(
             branch_input,
             worktree_sessions,
             selected_index,
+            show_help,
             title_panel,
         ),
     }
@@ -48,6 +47,7 @@ fn render_ready(
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
     selected_index: usize,
+    show_help: bool,
     panel: BoxPanel,
 ) {
     let repo_root_display = repo_root
@@ -60,6 +60,7 @@ fn render_ready(
         format!("{}-<branch>-<hash>", repo_name.unwrap().as_str())
     };
 
+    println!();
     panel.print_top();
     panel.print_section_header("Configuration");
     panel.print_key_value("Repo", &repo_root_display);
@@ -85,6 +86,7 @@ fn render_ready(
     }
 
     panel.print_section_header("Create Worktree");
+    panel.print_line(&style("Press Ctrl+H to show help", DIM, Some(WHITE)));
     let branch_value = if branch_input.is_empty() {
         style("type a branch name", DIM, Some(WHITE))
     } else {
@@ -136,12 +138,21 @@ fn render_ready(
     panel.print_bottom();
     println!();
 
-    panel.print_top();
-    panel.print_help("Enter", "create or switch");
-    panel.print_help("Up/Down", "move selection");
-    panel.print_help("Delete", "delete session");
-    panel.print_help("Esc", "clear input");
-    panel.print_bottom();
+    if show_help {
+        panel.print_top();
+        panel.print_help("Enter", "create or switch");
+        panel.print_help("Up/Down", "move selection");
+        panel.print_help("Ctrl+D", "delete session");
+        panel.print_help("Ctrl+H", "toggle help");
+        panel.print_help("Esc", "clear input or close");
+        panel.print_bottom();
+    }
+}
+
+fn print_top_padding() {
+    for _ in 0..TOP_PADDING_LINES {
+        println!();
+    }
 }
 
 fn worktree_display_name(path: Option<&Path>, repo_root: Option<&Path>, config: &Config) -> String {
