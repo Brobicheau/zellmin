@@ -1,20 +1,20 @@
-pub(crate) const RESET: &str = "\x1b[0m";
-pub(crate) const BOLD: &str = "\x1b[1m";
-pub(crate) const DIM: &str = "\x1b[2m";
-pub(crate) const RED: &str = "\x1b[31m";
-pub(crate) const GREEN: &str = "\x1b[32m";
-pub(crate) const YELLOW: &str = "\x1b[33m";
-pub(crate) const BLUE: &str = "\x1b[34m";
-pub(crate) const MAGENTA: &str = "\x1b[35m";
-pub(crate) const CYAN: &str = "\x1b[36m";
-pub(crate) const WHITE: &str = "\x1b[37m";
+pub const RESET: &str = "\x1b[0m";
+pub const BOLD: &str = "\x1b[1m";
+pub const DIM: &str = "\x1b[2m";
+pub const RED: &str = "\x1b[31m";
+pub const GREEN: &str = "\x1b[32m";
+pub const YELLOW: &str = "\x1b[33m";
+pub const BLUE: &str = "\x1b[34m";
+pub const MAGENTA: &str = "\x1b[35m";
+pub const CYAN: &str = "\x1b[36m";
+pub const WHITE: &str = "\x1b[37m";
 
-pub(crate) fn style(input: &str, modifier: &str, color: Option<&str>) -> String {
+pub fn style(input: &str, modifier: &str, color: Option<&str>) -> String {
     let color = color.unwrap_or("");
     format!("{}{}{}{}", modifier, color, input, RESET)
 }
 
-pub(crate) fn centered_styled(input: &str, width: usize) -> String {
+pub fn centered_styled(input: &str, width: usize) -> String {
     let visible_len = visible_width(input);
     if visible_len >= width {
         return input.to_string();
@@ -23,7 +23,7 @@ pub(crate) fn centered_styled(input: &str, width: usize) -> String {
     format!("{}{}", " ".repeat(padding), input)
 }
 
-pub(crate) fn visible_width(input: &str) -> usize {
+pub fn visible_width(input: &str) -> usize {
     let mut width = 0;
     let mut chars = input.chars().peekable();
 

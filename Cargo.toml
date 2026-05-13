@@ -1,12 +1,6 @@
-[package]
-name = "zitree"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-zellij-tile = "=0.44.1"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
+[workspace]
+members = ["lib/ui", "plugins/zitree", "plugins/zessionz"]
+resolver = "2"
 
 [profile.release]
 lto = true

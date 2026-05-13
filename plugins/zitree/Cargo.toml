@@ -1,0 +1,10 @@
+[package]
+name = "zitree"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plugin-ui = { path = "../../lib/ui" }
+zellij-tile = "=0.44.1"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"

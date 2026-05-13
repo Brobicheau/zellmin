@@ -1,13 +1,11 @@
-mod components;
-mod style;
-
 use std::path::Path;
 
 use crate::config::Config;
 use crate::state::{Status, WorktreeSessionEntry};
-
-use self::components::{BoxPanel, PanelLayout};
-use self::style::{style, BOLD, BLUE, CYAN, DIM, GREEN, MAGENTA, RED, RESET, WHITE, YELLOW};
+use plugin_ui::{
+    style, BoxPanel, PanelLayout, BOLD, BLUE, CYAN, DIM, GREEN, MAGENTA, RED, RESET, WHITE,
+    YELLOW,
+};
 
 pub fn render(
     status: &Status,

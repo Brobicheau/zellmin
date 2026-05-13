@@ -1,0 +1,10 @@
+[package]
+name = "zessionz"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plugin-ui = { path = "../../lib/ui" }
+zellij-tile = "=0.44.1"
+fuzzy-matcher = "0.3.7"
+humantime = "2.2.0"

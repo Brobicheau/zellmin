@@ -1,6 +1,80 @@
 # zitree
 
+Zellij plugin workspace.
+
+Crates:
+- `lib/ui`: shared boxed terminal UI primitives used by both plugins
+- `plugins/zitree`: create Git worktrees and switch into a session rooted at the new worktree
+- `plugins/zessionz`: zoxide-powered session picker using this repo's boxed terminal UI components
+
+## Workspace Build
+
+Build the original plugin:
+
+```bash
+cargo build --release --target wasm32-wasip1 -p zitree
+```
+
+Build the new plugin:
+
+```bash
+cargo build --release --target wasm32-wasip1 -p zessionz
+```
+
+Expected plugin artifacts:
+
+```text
+target/wasm32-wasip1/release/zitree.wasm
+target/wasm32-wasip1/release/zessionz.wasm
+```
+
+## zessionz
+
+`zessionz` is the MVP sibling plugin modeled after `zsm`.
+
+It now consumes the shared `lib/ui` crate instead of maintaining its own copy of the box-panel and ANSI style helpers.
+
+Behavior:
+- queries `zoxide query -l -s` and ranks directories by score
+- merges live Zellij sessions with the generated directory list
+- supports fuzzy search across sessions and directories
+- `Enter` switches an existing session or opens a new-session screen for a directory
+- `Ctrl+Enter` quick-creates the selected directory using the configured default layout when available
+- skips filepicker support for now
+
+Example keybinding:
+
+```kdl
+keybinds {
+    normal {
+        bind "Alt z" {
+            LaunchOrFocusPlugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/zessionz.wasm" {
+                floating true
+                move_to_focused_tab true
+                default_layout "development"
+                session_separator "."
+                show_resurrectable_sessions "false"
+                base_paths "/home/user/projects|/home/user/src"
+            }
+        }
+    }
+}
+```
+
+Configuration options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `default_layout` | String | _(none)_ | Layout name used by `Ctrl+Enter` quick create |
+| `session_separator` | String | `.` | Separator used when generating session names |
+| `show_resurrectable_sessions` | Boolean | `false` | Include resurrectable sessions in the list |
+| `base_paths` | String | _(none)_ | Pipe-separated path prefixes stripped before name generation |
+
+## zitree
+
 Zellij plugin for creating Git worktrees and switching into a session rooted at the new worktree.
+
+`zitree` now lives in `plugins/zitree` and also consumes the shared `lib/ui` crate.
 
 ## Behavior
 
@@ -14,10 +88,10 @@ Zellij plugin for creating Git worktrees and switching into a session rooted at 
 
 ## Build
 
-This repository is a Rust Zellij plugin crate. Build it for WASI:
+This repository is a Rust workspace. Build `zitree` for WASI:
 
 ```bash
-cargo build --release --target wasm32-wasip1
+cargo build --release --target wasm32-wasip1 -p zitree
 ```
 
 If your toolchain still expects the legacy target name, use `wasm32-wasi` instead.

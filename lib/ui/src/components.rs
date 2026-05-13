@@ -1,13 +1,13 @@
-use super::style::{centered_styled, style, visible_width, BLUE, BOLD, CYAN, RESET, WHITE};
+use crate::{centered_styled, style, visible_width, BLUE, BOLD, CYAN, RESET, WHITE};
 
 #[derive(Clone, Copy)]
-pub(crate) struct PanelLayout {
+pub struct PanelLayout {
     width: usize,
     gutter: usize,
 }
 
 impl PanelLayout {
-    pub(crate) fn new(cols: usize) -> Self {
+    pub fn new(cols: usize) -> Self {
         let width = cols.saturating_sub(4).clamp(16, 96);
         let gutter = cols.saturating_sub(width + 4) / 2;
         Self { width, gutter }
@@ -15,41 +15,45 @@ impl PanelLayout {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct BoxPanel {
+pub struct BoxPanel {
     width: usize,
     gutter: usize,
 }
 
 impl BoxPanel {
-    pub(crate) fn new(layout: PanelLayout) -> Self {
+    pub fn new(layout: PanelLayout) -> Self {
         Self {
             width: layout.width,
             gutter: layout.gutter,
         }
     }
 
-    pub(crate) fn print_top(&self) {
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn print_top(&self) {
         println!("{}", self.format_border('┌', '─', '┐'));
     }
 
-    pub(crate) fn print_bottom(&self) {
+    pub fn print_bottom(&self) {
         println!("{}", self.format_border('└', '─', '┘'));
     }
 
-    pub(crate) fn print_line(&self, content: &str) {
+    pub fn print_line(&self, content: &str) {
         println!("{}", self.format_line(content));
     }
 
-    pub(crate) fn print_centered_line(&self, content: &str) {
+    pub fn print_centered_line(&self, content: &str) {
         self.print_line(&centered_styled(content, self.width));
     }
 
-    pub(crate) fn print_section_header(&self, title: &str) {
+    pub fn print_section_header(&self, title: &str) {
         self.print_line("");
         self.print_line(&self.format_section_header(title));
     }
 
-    pub(crate) fn print_key_value(&self, label: &str, value: &str) {
+    pub fn print_key_value(&self, label: &str, value: &str) {
         let line = format!(
             "{} {}",
             style(&format!("{}:", label), BOLD, Some(BLUE)),
@@ -58,11 +62,11 @@ impl BoxPanel {
         self.print_line(&line);
     }
 
-    pub(crate) fn print_help(&self, key: &str, title: &str) {
-        self.print_line(&format!("{} {} ", keycap(key), title));
+    pub fn print_help(&self, key: &str, title: &str) {
+        self.print_line(&format!("{} {}", keycap(key), title));
     }
 
-    pub(crate) fn print_status(&self, icon: &str, color: &str, message: &str) {
+    pub fn print_status(&self, icon: &str, color: &str, message: &str) {
         self.print_top();
         self.print_line(&status_line(icon, color, message));
         self.print_bottom();
@@ -112,7 +116,7 @@ fn status_line(icon: &str, color: &str, message: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::style::{style, CYAN};
+    use crate::{style, CYAN};
 
     #[test]
     fn line_padding_uses_visible_width() {
