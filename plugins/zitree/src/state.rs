@@ -22,7 +22,7 @@ pub struct State {
     known_worktrees: Vec<WorktreeLocation>,
     worktree_sessions: Vec<WorktreeSessionEntry>,
     live_session_names: Vec<String>,
-    selected_index: usize,
+    selected_index: Option<usize>,
     status: Status,
     config_loaded: bool,
     show_help: bool,
@@ -528,8 +528,13 @@ impl State {
             return;
         }
 
-        if let Some(index) = previous_selectable_index(&self.worktree_sessions, self.selected_index) {
-            self.selected_index = index;
+        let Some(selected_index) = self.selected_index else {
+            self.status = Status::Ready;
+            return;
+        };
+
+        if let Some(index) = previous_selectable_index(&self.worktree_sessions, selected_index) {
+            self.selected_index = Some(index);
         }
         self.status = Status::Ready;
     }
@@ -541,14 +546,25 @@ impl State {
             return;
         }
 
-        if let Some(index) = next_selectable_index(&self.worktree_sessions, self.selected_index) {
-            self.selected_index = index;
+        let Some(selected_index) = self.selected_index else {
+            self.status = Status::Ready;
+            return;
+        };
+
+        if let Some(index) = next_selectable_index(&self.worktree_sessions, selected_index) {
+            self.selected_index = Some(index);
         }
         self.status = Status::Ready;
     }
 
     fn switch_selected_worktree_session(&mut self) {
-        let Some(entry) = self.worktree_sessions.get(self.selected_index) else {
+        let Some(selected_index) = self.selected_index else {
+            self.status =
+                Status::Error("No selectable worktree sessions found for this repository.".to_string());
+            return;
+        };
+
+        let Some(entry) = self.worktree_sessions.get(selected_index) else {
             self.status =
                 Status::Error("No worktree sessions found for this repository.".to_string());
             return;
@@ -627,7 +643,13 @@ impl State {
     }
 
     fn delete_selected_worktree_session(&mut self) {
-        let Some(entry) = self.worktree_sessions.get(self.selected_index) else {
+        let Some(selected_index) = self.selected_index else {
+            self.status =
+                Status::Error("No selectable worktree sessions found for this repository.".to_string());
+            return;
+        };
+
+        let Some(entry) = self.worktree_sessions.get(selected_index) else {
             self.status =
                 Status::Error("No worktree sessions found for this repository.".to_string());
             return;
@@ -703,9 +725,9 @@ impl State {
             .position(|entry| entry.live_session_name.as_deref() == Some(live_session_name))
         {
             self.selected_index = if self.worktree_sessions[index].is_current {
-                first_selectable_index(&self.worktree_sessions).unwrap_or(index)
+                first_selectable_index(&self.worktree_sessions)
             } else {
-                index
+                Some(index)
             };
             return;
         }
@@ -718,7 +740,7 @@ impl State {
             has_live_session: true,
             is_current: false,
         });
-        self.selected_index = self.worktree_sessions.len() - 1;
+        self.selected_index = Some(self.worktree_sessions.len() - 1);
     }
 
     fn rebuild_worktree_sessions(&mut self) {
@@ -736,13 +758,12 @@ impl State {
             &self.known_worktrees,
             &self.live_session_names,
         );
-        self.selected_index =
-            selected_index_for_sessions(&self.worktree_sessions, previous_selection);
+        self.selected_index = selected_index_for_sessions(&self.worktree_sessions, previous_selection);
     }
 
     fn selected_session_key(&self) -> Option<String> {
-        self.worktree_sessions
-            .get(self.selected_index)
+        self.selected_index
+            .and_then(|selected_index| self.worktree_sessions.get(selected_index))
             .map(session_selection_key)
     }
 
@@ -861,9 +882,9 @@ fn main_worktree_session_name(repo_name: &str) -> String {
 fn selected_index_for_sessions(
     sessions: &[WorktreeSessionEntry],
     previous_selection: Option<&str>,
-) -> usize {
+) -> Option<usize> {
     if sessions.is_empty() {
-        return 0;
+        return None;
     }
 
     if let Some(previous_selection) = previous_selection {
@@ -871,11 +892,11 @@ fn selected_index_for_sessions(
             .iter()
             .position(|entry| !entry.is_current && session_selection_key(entry) == previous_selection)
         {
-            return index;
+            return Some(index);
         }
     }
 
-    first_selectable_index(sessions).unwrap_or(0)
+    first_selectable_index(sessions)
 }
 
 fn first_selectable_index(sessions: &[WorktreeSessionEntry]) -> Option<usize> {
@@ -936,7 +957,7 @@ mod tests {
 
         let selected_index = selected_index_for_sessions(&sessions, Some("repo-feature-d0b50b87"));
 
-        assert_eq!(selected_index, 1);
+        assert_eq!(selected_index, Some(1));
     }
 
     #[test]
@@ -960,7 +981,7 @@ mod tests {
             },
         ];
 
-        assert_eq!(selected_index_for_sessions(&sessions, None), 1);
+        assert_eq!(selected_index_for_sessions(&sessions, None), Some(1));
     }
 
     #[test]
@@ -1069,10 +1090,10 @@ mod tests {
         };
 
         state.select_previous_worktree_session();
-        assert_eq!(state.selected_index, 1);
+        assert_eq!(state.selected_index, Some(1));
 
         state.select_next_worktree_session();
-        assert_eq!(state.selected_index, 2);
+        assert_eq!(state.selected_index, Some(2));
     }
 
     #[test]

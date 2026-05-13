@@ -15,7 +15,7 @@ pub fn render(
     config: &Config,
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
-    selected_index: usize,
+    selected_index: Option<usize>,
     show_help: bool,
     cols: usize,
 ) {
@@ -46,7 +46,7 @@ fn render_ready(
     config: &Config,
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
-    selected_index: usize,
+    selected_index: Option<usize>,
     show_help: bool,
     panel: BoxPanel,
 ) {
@@ -108,7 +108,7 @@ fn render_ready(
         ));
     } else {
         for (index, entry) in worktree_sessions.iter().enumerate() {
-            let selected_marker = if index == selected_index {
+            let selected_marker = if selected_index == Some(index) {
                 style("→", BOLD, Some(CYAN))
             } else {
                 style(" ", RESET, None)
