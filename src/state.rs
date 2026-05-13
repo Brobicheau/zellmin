@@ -86,8 +86,10 @@ impl ZellijPlugin for State {
                 true
             }
             Event::SessionUpdate(live_sessions, _) => {
-                self.live_session_names =
-                    live_sessions.into_iter().map(|session| session.name).collect();
+                self.live_session_names = live_sessions
+                    .into_iter()
+                    .map(|session| session.name)
+                    .collect();
                 self.rebuild_worktree_sessions();
                 true
             }
@@ -100,6 +102,7 @@ impl ZellijPlugin for State {
         ui::render(
             &self.status,
             self.repo_root.as_deref(),
+            self.repo_name.as_ref(),
             &self.config,
             &self.branch_input,
             &self.worktree_sessions,
@@ -222,7 +225,7 @@ impl State {
             self.check_branch(&branch);
         }
     }
-    
+
     fn check_branch(&mut self, branch: &str) {
         let Some(repo_root) = self.repo_root.clone() else {
             self.status = Status::Error("Repository root is not available yet.".to_string());
@@ -248,12 +251,10 @@ impl State {
             CommandAction::DiscoverRepo => {
                 if exit_code == Some(0) {
                     let output = String::from_utf8_lossy(&stdout);
-                    let Some((current_worktree_root, repo_root)) =
-                        git::parse_repo_roots(&output)
+                    let Some((current_worktree_root, repo_root)) = git::parse_repo_roots(&output)
                     else {
-                        self.status = Status::Error(
-                            "Could not determine git repository root.".to_string(),
-                        );
+                        self.status =
+                            Status::Error("Could not determine git repository root.".to_string());
                         return;
                     };
                     self.repo_name = repo_root
@@ -262,7 +263,7 @@ impl State {
                         .map(|name| name.to_string());
                     self.current_worktree_root = Some(current_worktree_root);
                     self.repo_root = Some(repo_root.clone());
-                    
+
                     // Try to load repo config
                     self.load_repo_config(repo_root);
                 } else {
@@ -334,7 +335,12 @@ impl State {
                     {
                         self.live_session_names.push(session_name.clone());
                     }
-                    self.add_or_select_worktree_session(&branch, &worktree_path, &session_name);
+                    self.add_or_select_worktree_session(
+                        &branch,
+                        &worktree_path,
+                        &session_name,
+                        Some(&session_name),
+                    );
                     self.status = Status::Success(format!(
                         "Created session `{session_name}` for worktree `{}`. Switching...",
                         worktree_path.display()
@@ -365,16 +371,22 @@ impl State {
                     ));
                 }
             }
-            CommandAction::DeleteSession { session: session_name } => {
+            CommandAction::DeleteSession {
+                session: session_name,
+            } => {
                 if exit_code == Some(0) {
-                    self.live_session_names.retain(|live_session| live_session != &session_name);
+                    self.live_session_names
+                        .retain(|live_session| live_session != &session_name);
                     let previous_selection = self.selected_session_key();
                     self.rebuild_worktree_sessions_with_selection(
                         previous_selection.as_ref().map(|value| value.as_str()),
                     );
                     self.status = Status::Success(format!("Deleted session `{session_name}`."));
                 } else {
-                    self.status = Status::Error(commands::command_error("Failed to delete session.", &stderr));
+                    self.status = Status::Error(commands::command_error(
+                        "Failed to delete session.",
+                        &stderr,
+                    ));
                 }
             }
         }
@@ -388,8 +400,11 @@ impl State {
             return;
         };
 
-        self.status = Status::Busy(format!("Creating worktree `{}`...", worktree_path.display()));
-        
+        self.status = Status::Busy(format!(
+            "Creating worktree `{}`...",
+            worktree_path.display()
+        ));
+
         if branch_exists {
             git::create_worktree_existing(repo_root, branch, &worktree_path);
         } else {
@@ -406,7 +421,7 @@ impl State {
         self.status = Status::Busy("Discovering repository root...".to_string());
         git::discover_repo();
     }
-    
+
     fn load_repo_config(&mut self, repo_root: PathBuf) {
         self.status = Status::Busy("Loading repository configuration...".to_string());
         commands::load_repo_config(repo_root);
@@ -424,7 +439,8 @@ impl State {
 
     fn select_previous_worktree_session(&mut self) {
         if self.worktree_sessions.is_empty() {
-            self.status = Status::Error("No worktree sessions found for this repository.".to_string());
+            self.status =
+                Status::Error("No worktree sessions found for this repository.".to_string());
             return;
         }
 
@@ -434,7 +450,8 @@ impl State {
 
     fn select_next_worktree_session(&mut self) {
         if self.worktree_sessions.is_empty() {
-            self.status = Status::Error("No worktree sessions found for this repository.".to_string());
+            self.status =
+                Status::Error("No worktree sessions found for this repository.".to_string());
             return;
         }
 
@@ -444,7 +461,8 @@ impl State {
 
     fn switch_selected_worktree_session(&mut self) {
         let Some(entry) = self.worktree_sessions.get(self.selected_index) else {
-            self.status = Status::Error("No worktree sessions found for this repository.".to_string());
+            self.status =
+                Status::Error("No worktree sessions found for this repository.".to_string());
             return;
         };
 
@@ -481,13 +499,24 @@ impl State {
         let worktree_path = self.worktree_path(branch);
         let session_name = self.session_name(branch);
 
-        if self.live_session_names.iter().any(|live_session| live_session == &session_name) {
-            self.add_or_select_worktree_session(branch, &worktree_path, &session_name);
+        if let Some(live_session_name) = matching_worktree_live_session_name(
+            self.repo_name.as_deref(),
+            branch,
+            &self.config,
+            &self.live_session_names,
+        ) {
+            self.add_or_select_worktree_session(
+                branch,
+                &worktree_path,
+                &session_name,
+                Some(&live_session_name),
+            );
             self.status = Status::Success(format!(
-                "Created worktree `{}`. Switching to session `{session_name}`...",
-                worktree_path.display()
+                "Created worktree `{}`. Switching to session `{}`...",
+                worktree_path.display(),
+                live_session_name,
             ));
-            switch_session(Some(&session_name));
+            switch_session(Some(&live_session_name));
             return;
         }
 
@@ -511,12 +540,14 @@ impl State {
 
     fn delete_selected_worktree_session(&mut self) {
         let Some(entry) = self.worktree_sessions.get(self.selected_index) else {
-            self.status = Status::Error("No worktree sessions found for this repository.".to_string());
+            self.status =
+                Status::Error("No worktree sessions found for this repository.".to_string());
             return;
         };
 
         if entry.is_current {
-            self.status = Status::Error("Cannot delete the current session from inside itself.".to_string());
+            self.status =
+                Status::Error("Cannot delete the current session from inside itself.".to_string());
             return;
         }
 
@@ -537,11 +568,19 @@ impl State {
         zellij::delete_session(repo_root, live_session_name);
     }
 
-    fn add_or_select_worktree_session(&mut self, branch: &str, path: &Path, session_name: &str) {
+    fn add_or_select_worktree_session(
+        &mut self,
+        branch: &str,
+        path: &Path,
+        session_name: &str,
+        live_session_name: Option<&str>,
+    ) {
+        let live_session_name = live_session_name.unwrap_or(session_name);
+
         if let Some(index) = self
             .worktree_sessions
             .iter()
-            .position(|entry| entry.live_session_name.as_deref() == Some(session_name))
+            .position(|entry| entry.live_session_name.as_deref() == Some(live_session_name))
         {
             self.selected_index = index;
             return;
@@ -551,7 +590,7 @@ impl State {
             branch: branch.to_string(),
             path: Some(path.to_path_buf()),
             session_name: session_name.to_string(),
-            live_session_name: Some(session_name.to_string()),
+            live_session_name: Some(live_session_name.to_string()),
             has_live_session: true,
             is_current: false,
         });
@@ -573,7 +612,8 @@ impl State {
             &self.known_worktrees,
             &self.live_session_names,
         );
-        self.selected_index = selected_index_for_sessions(&self.worktree_sessions, previous_selection);
+        self.selected_index =
+            selected_index_for_sessions(&self.worktree_sessions, previous_selection);
     }
 
     fn selected_session_key(&self) -> Option<String> {
@@ -610,11 +650,12 @@ fn build_worktree_sessions(
         .iter()
         .map(|worktree| {
             let is_main_worktree = repo_root == Some(worktree.path.as_path());
-            let candidates = worktree_session_name_candidates(Some(repo_name), &worktree.branch, config);
-            let generated_live_session_name = live_session_names
-                .iter()
-                .find(|session_name| candidates.iter().any(|candidate| candidate == *session_name))
-                .cloned();
+            let generated_live_session_name = matching_worktree_live_session_name(
+                Some(repo_name),
+                &worktree.branch,
+                config,
+                live_session_names,
+            );
             let main_live_session_name = is_main_worktree
                 .then(|| {
                     let main_session_candidates = main_worktree_session_name_candidates(repo_name);
@@ -658,6 +699,23 @@ fn worktree_session_name_candidates(
     naming::session_name_candidates(repo_name, branch, config)
 }
 
+fn matching_worktree_live_session_name(
+    repo_name: Option<&str>,
+    branch: &str,
+    config: &Config,
+    live_session_names: &[String],
+) -> Option<String> {
+    let candidates = worktree_session_name_candidates(repo_name, branch, config);
+    live_session_names
+        .iter()
+        .find(|session_name| {
+            candidates
+                .iter()
+                .any(|candidate| candidate == *session_name)
+        })
+        .cloned()
+}
+
 fn main_worktree_session_name_candidates(repo_name: &str) -> Vec<String> {
     let mut candidates = vec![main_worktree_session_name(repo_name)];
     let sanitized = naming::sanitize_session_segment(repo_name);
@@ -688,7 +746,10 @@ fn selected_index_for_sessions(
         }
     }
 
-    sessions.iter().position(|entry| entry.is_current).unwrap_or(0)
+    sessions
+        .iter()
+        .position(|entry| entry.is_current)
+        .unwrap_or(0)
 }
 
 fn session_selection_key(entry: &WorktreeSessionEntry) -> String {
@@ -758,10 +819,19 @@ mod tests {
         assert_eq!(sessions[0].branch, "main");
         assert_eq!(sessions[0].path, Some(PathBuf::from("/tmp/repo")));
         assert_eq!(sessions[0].session_name, "repo");
-        assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo-main-17c9aaa7"));
+        assert_eq!(
+            sessions[0].live_session_name.as_deref(),
+            Some("repo-main-17c9aaa7")
+        );
         assert_eq!(sessions[1].branch, "feature/test");
-        assert_eq!(sessions[1].path, Some(PathBuf::from("/tmp/repo/.worktrees/feature")));
-        assert_eq!(sessions[1].live_session_name.as_deref(), Some("repo-feature-test-727724f6"));
+        assert_eq!(
+            sessions[1].path,
+            Some(PathBuf::from("/tmp/repo/.worktrees/feature"))
+        );
+        assert_eq!(
+            sessions[1].live_session_name.as_deref(),
+            Some("repo-feature-test-727724f6")
+        );
     }
 
     #[test]
@@ -781,7 +851,10 @@ mod tests {
 
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].branch, "feature/test");
-        assert_eq!(sessions[0].path, Some(PathBuf::from("/tmp/repo/.worktrees/feature")));
+        assert_eq!(
+            sessions[0].path,
+            Some(PathBuf::from("/tmp/repo/.worktrees/feature"))
+        );
         assert_eq!(sessions[0].live_session_name, None);
         assert!(!sessions[0].has_live_session);
     }
@@ -880,7 +953,47 @@ mod tests {
                 if message == "Created worktree `/tmp/repo/.worktrees/feature/test`. Switching to session `repo-feature-test-727724f6`..."
         ));
         assert_eq!(state.worktree_sessions.len(), 1);
-        assert_eq!(state.worktree_sessions[0].live_session_name.as_deref(), Some("repo-feature-test-727724f6"));
+        assert_eq!(
+            state.worktree_sessions[0].live_session_name.as_deref(),
+            Some("repo-feature-test-727724f6")
+        );
+    }
+
+    #[test]
+    fn create_worktree_session_switches_to_matching_legacy_session_for_hyphenated_repo() {
+        let config = Config::default();
+        let legacy_session_name =
+            naming::session_name_candidates(Some("repo-name"), "feature/test", &config)
+                .into_iter()
+                .find(|candidate| candidate != "repo-name-feature-test-727724f6")
+                .expect("expected a secondary session name candidate");
+
+        let mut state = State {
+            config,
+            repo_root: Some(PathBuf::from("/tmp/repo-name")),
+            repo_name: Some("repo-name".to_string()),
+            live_session_names: vec![legacy_session_name.clone()],
+            ..State::default()
+        };
+
+        state.create_or_switch_worktree_session("feature/test");
+
+        assert!(matches!(
+            state.status,
+            Status::Success(ref message)
+                if message == &format!(
+                    "Created worktree `/tmp/repo-name/.worktrees/feature/test`. Switching to session `{legacy_session_name}`..."
+                )
+        ));
+        assert_eq!(state.worktree_sessions.len(), 1);
+        assert_eq!(
+            state.worktree_sessions[0].session_name,
+            "repo-name-feature-test-727724f6"
+        );
+        assert_eq!(
+            state.worktree_sessions[0].live_session_name.as_deref(),
+            Some(legacy_session_name.as_str())
+        );
     }
 
     #[test]

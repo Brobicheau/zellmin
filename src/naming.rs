@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use crate::config::{Config, WorktreeNamingPattern};
+use std::path::{Path, PathBuf};
 
 // Zellij's IPC socket path can be as short as 103 bytes on macOS, and the
 // socket directory prefix itself can already consume most of that budget.
@@ -15,7 +15,7 @@ pub fn worktree_path(repo_root: &Path, config: &Config, branch: &str) -> PathBuf
             format!("{}-{}", sanitize_path_segment(branch), short_hash(branch))
         }
     };
-    
+
     repo_root
         .join(&config.worktree_dir_name)
         .join(worktree_name)
@@ -28,7 +28,11 @@ pub fn session_name(repo_name: Option<&str>, branch: &str, config: &Config) -> S
         .unwrap_or_else(|| "repo-worktree-00000000".to_string())
 }
 
-pub fn session_name_candidates(repo_name: Option<&str>, branch: &str, config: &Config) -> Vec<String> {
+pub fn session_name_candidates(
+    repo_name: Option<&str>,
+    branch: &str,
+    config: &Config,
+) -> Vec<String> {
     let repo = repo_name.unwrap_or("repo");
     let repo_segment = sanitize_session_segment(repo);
     let branch_segment = sanitize_session_segment(branch);
@@ -159,7 +163,11 @@ fn bounded_session_name(
 
     let prefix_weight = usize::from(prefix.is_some());
     let total_weight = prefix_weight + 2;
-    let mut prefix_budget = if prefix_weight == 0 { 0 } else { available / total_weight };
+    let mut prefix_budget = if prefix_weight == 0 {
+        0
+    } else {
+        available / total_weight
+    };
     let mut repo_budget = available / total_weight;
     let mut branch_budget = available.saturating_sub(prefix_budget + repo_budget);
 
@@ -181,7 +189,12 @@ fn bounded_session_name(
     let repo_segment = truncate_session_segment(repo_segment, repo_budget);
     let branch_segment = truncate_session_segment(branch_segment, branch_budget);
 
-    join_session_parts(prefix.as_deref(), &repo_segment, &branch_segment, branch_hash)
+    join_session_parts(
+        prefix.as_deref(),
+        &repo_segment,
+        &branch_segment,
+        branch_hash,
+    )
 }
 
 fn push_unique(values: &mut Vec<String>, candidate: String) {
@@ -191,7 +204,11 @@ fn push_unique(values: &mut Vec<String>, candidate: String) {
 }
 
 fn separator_count(has_prefix: bool) -> usize {
-    if has_prefix { 3 } else { 2 }
+    if has_prefix {
+        3
+    } else {
+        2
+    }
 }
 
 pub(crate) fn truncate_session_segment(input: &str, max_len: usize) -> String {
@@ -203,7 +220,7 @@ pub(crate) fn truncate_session_segment(input: &str, max_len: usize) -> String {
         return String::new();
     }
 
-    let min_hash_len = 6.min(max_len.saturating_sub(1));
+    let min_hash_len = 6.min(max_len.saturating_sub(2));
     if min_hash_len == 0 {
         return input[..max_len].to_string();
     }
@@ -240,7 +257,10 @@ mod tests {
     fn keeps_short_session_names_unchanged() {
         let config = Config::default();
 
-        assert_eq!(session_name(Some("repo"), "feature/test", &config), "repo-feature-test-727724f6");
+        assert_eq!(
+            session_name(Some("repo"), "feature/test", &config),
+            "repo-feature-test-727724f6"
+        );
     }
 
     #[test]
@@ -249,8 +269,12 @@ mod tests {
 
         let candidates = session_name_candidates(Some("zitree"), "test/tree", &config);
 
-        assert!(candidates.iter().any(|candidate| candidate == "zitree-test-tree-377d9d196e84c82"));
-        assert!(candidates.iter().any(|candidate| candidate == "z-2dfa96-t-a4b6eb-96e84c82"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate == "zitree-test-tree-377d9d196e84c82"));
+        assert!(candidates
+            .iter()
+            .any(|candidate| candidate == "z-2dfa96-t-a4b6eb-96e84c82"));
     }
 
     #[test]
@@ -272,6 +296,19 @@ mod tests {
     #[test]
     fn short_hash_is_always_eight_hex_chars() {
         assert_eq!(short_hash("feature/test").len(), 8);
-        assert_eq!(short_hash("feature/with-a-very-long-branch-name-that-would-also-overflow").len(), 8);
+        assert_eq!(
+            short_hash("feature/with-a-very-long-branch-name-that-would-also-overflow").len(),
+            8
+        );
+    }
+
+    #[test]
+    fn truncation_keeps_visible_character_for_tight_budgets() {
+        assert_eq!(truncate_session_segment("repo-name", 7), "r-bb5357");
+    }
+
+    #[test]
+    fn truncation_falls_back_to_plain_prefix_when_budget_is_too_small_for_hash_suffix() {
+        assert_eq!(truncate_session_segment("repo-name", 2), "re");
     }
 }

@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::config::Config;
+use crate::naming::{sanitize_session_segment, session_name};
 use crate::state::{Status, WorktreeSessionEntry};
 
 const RESET: &str = "\x1b[0m";
@@ -17,6 +18,7 @@ const WHITE: &str = "\x1b[37m";
 pub fn render(
     status: &Status,
     repo_root: Option<&Path>,
+    repo_name: Option<&String>,
     config: &Config,
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
@@ -54,6 +56,7 @@ pub fn render(
         }
         Status::Ready => render_ready(
             repo_root,
+            repo_name,
             config,
             branch_input,
             worktree_sessions,
@@ -66,6 +69,7 @@ pub fn render(
 
 fn render_ready(
     repo_root: Option<&Path>,
+    repo_name: Option<&String>,
     config: &Config,
     branch_input: &str,
     worktree_sessions: &[WorktreeSessionEntry],
@@ -77,10 +81,12 @@ fn render_ready(
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| "Detecting repository root...".to_string());
 
+    let name = session_name(Some(repo_name.unwrap().as_str()), branch_input, config);
+
     let session_format = if let Some(prefix) = &config.session_prefix {
         format!("{}-<repo>-<branch>-<hash>", prefix)
     } else {
-        "<repo>-<branch>-<hash>".to_string()
+        format!("{}-<branch>-<hash>", name)
     };
 
     print_border('┌', '─', '┐', width, gutter);
