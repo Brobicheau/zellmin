@@ -143,15 +143,17 @@ pub fn parse_worktree_locations(
     output: &str,
     current_repo_root: Option<&Path>,
 ) -> Vec<WorktreeLocation> {
+    let repo_root = current_repo_root.map(shared_repo_root);
     output
         .split("\n\n")
-        .filter_map(|block| parse_worktree_location_block(block, current_repo_root))
+        .filter_map(|block| parse_worktree_location_block(block, current_repo_root, repo_root.as_deref()))
         .collect()
 }
 
 fn parse_worktree_location_block(
     block: &str,
     current_repo_root: Option<&Path>,
+    repo_root: Option<&Path>,
 ) -> Option<WorktreeLocation> {
     let mut path = None;
     let mut branch = None;
@@ -166,11 +168,21 @@ fn parse_worktree_location_block(
 
     let path = path?;
     let branch = branch?;
+    if repo_root.is_some_and(|repo_root| shared_repo_root(&path) != repo_root) {
+        return None;
+    }
     Some(WorktreeLocation {
         is_current: current_repo_root == Some(path.as_path()),
         branch,
         path,
     })
+}
+
+fn shared_repo_root(path: &Path) -> &Path {
+    path.parent()
+        .filter(|parent| parent.file_name().is_some_and(|name| name == ".worktrees"))
+        .and_then(Path::parent)
+        .unwrap_or(path)
 }
 
 #[cfg(test)]
@@ -230,5 +242,19 @@ mod tests {
 
         assert!(!worktrees[0].is_current);
         assert!(worktrees[1].is_current);
+    }
+
+    #[test]
+    fn filters_out_worktrees_from_other_repositories() {
+        let output = "worktree /tmp/repo\nHEAD abc123\nbranch refs/heads/main\n\nworktree /tmp/repo/.worktrees/feature\nHEAD def456\nbranch refs/heads/feature/test\n\nworktree /tmp/other-repo\nHEAD 123abc\nbranch refs/heads/main\n\nworktree /tmp/other-repo/.worktrees/topic\nHEAD 456def\nbranch refs/heads/topic\n";
+
+        let worktrees = parse_worktree_locations(output, Some(Path::new("/tmp/repo")));
+
+        assert_eq!(worktrees.len(), 2);
+        assert_eq!(worktrees[0].path, PathBuf::from("/tmp/repo"));
+        assert_eq!(
+            worktrees[1].path,
+            PathBuf::from("/tmp/repo/.worktrees/feature")
+        );
     }
 }
