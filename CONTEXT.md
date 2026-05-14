@@ -12,7 +12,7 @@ This file captures the current working context for this repository so future wor
   - `plugins/treemin`
   - `plugins/seshmin`
 - Shared UI stays in `lib/ui`.
-- Shared host persistence lives in `lib/host-storage`.
+- Shared plugin persistence lives in `lib/host-storage`.
 - Shared `treemin` session ownership metadata lives in `lib/session-registry`.
 
 ## Product Intent
@@ -84,9 +84,9 @@ This file captures the current working context for this repository so future wor
 
 ## treemin Session Ownership Registry
 
-- `treemin`-managed session metadata is stored under `/host` so other plugins can inspect it.
+- `treemin`-managed session metadata is stored under `/tmp` so other plugins can inspect it.
 - Registry file path:
-  - `/host/treemin/sessions/managed.txt`
+  - `/tmp/treemin/sessions/managed.txt`
 - Format:
   - plain text
   - one session name per line
@@ -144,7 +144,7 @@ The latest work updated `plugins/treemin/src/state.rs` to use the new branch-onl
 ## Files Most Relevant To Current Work
 
 - `Cargo.toml`: workspace members
-- `lib/host-storage/src/lib.rs`: `/host`-rooted storage helper
+- `lib/host-storage/src/lib.rs`: `/tmp`-rooted storage helper
 - `lib/session-registry/src/lib.rs`: `treemin` managed session registry
 - `plugins/treemin/src/naming.rs`: branch-only naming, collision handling, legacy matching candidates
 - `plugins/treemin/src/state.rs`: current `treemin` state, matching, delete flow, selection logic, tests

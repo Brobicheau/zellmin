@@ -2,7 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
-pub const HOST_ROOT: &str = "/host";
+pub const HOST_ROOT: &str = "/tmp";
 
 #[derive(Debug, Clone)]
 pub struct HostStorage {
@@ -105,7 +105,7 @@ mod tests {
     fn builds_namespace_under_host_root() {
         let storage = HostStorage::new("treemin").unwrap();
 
-        assert_eq!(storage.root(), Path::new("/host/treemin"));
+        assert_eq!(storage.root(), Path::new("/tmp/treemin"));
     }
 
     #[test]
