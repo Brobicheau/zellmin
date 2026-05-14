@@ -49,9 +49,9 @@ mod tests {
 
     #[test]
     fn visible_width_ignores_ansi_escape_sequences() {
-        let styled = style("zitree", BOLD, Some(WHITE));
+        let styled = style("treemin", BOLD, Some(WHITE));
 
-        assert_eq!(visible_width(&styled), 6);
+        assert_eq!(visible_width(&styled), 7);
     }
 
     #[test]

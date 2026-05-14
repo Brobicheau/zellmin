@@ -1,10 +1,10 @@
-# Zitree Configuration Quick Reference
+# Treemin Configuration Quick Reference
 
 ## Configuration Methods
 
 ```kdl
 # Method 1: Zellij KDL Config
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
     worktree_dir_name ".worktrees"
     session_prefix "wt"
@@ -16,7 +16,7 @@ LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
 ```
 
 ```toml
-# Method 2: Repository .zitree.toml
+# Method 2: Repository .treemin.toml
 worktree_dir_name = ".worktrees"
 session_prefix = "wt"
 base_branch = "main"
@@ -57,7 +57,7 @@ With prefix:   wt-myrepo-feature-abc123
 
 **Minimal:**
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" { floating true }
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" { floating true }
 ```
 
 **Team workflow:**
@@ -80,8 +80,8 @@ worktree_naming_pattern = "hash"
 
 ## Files
 
-- `.zitree.toml` - Repository config (commit this)
-- `.zitree.toml.example` - Template
+- `.treemin.toml` - Repository config (commit this)
+- `.treemin.toml.example` - Template
 - `CONFIG.md` - Full documentation
 
 ## See Also

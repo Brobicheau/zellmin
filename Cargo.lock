@@ -718,6 +718,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
+name = "host-storage"
+version = "0.1.0"
+
+[[package]]
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1746,6 +1750,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "seshmin"
+version = "0.1.0"
+dependencies = [
+ "fuzzy-matcher",
+ "host-storage",
+ "humantime",
+ "plugin-ui",
+ "session-registry",
+ "zellij-tile",
+]
+
+[[package]]
+name = "session-registry"
+version = "0.1.0"
+dependencies = [
+ "host-storage",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2201,6 +2224,18 @@ checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
  "pin-project",
  "tracing",
+]
+
+[[package]]
+name = "treemin"
+version = "0.1.0"
+dependencies = [
+ "host-storage",
+ "plugin-ui",
+ "serde",
+ "session-registry",
+ "toml",
+ "zellij-tile",
 ]
 
 [[package]]
@@ -2952,26 +2987,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "zessionz"
-version = "0.1.0"
-dependencies = [
- "fuzzy-matcher",
- "humantime",
- "plugin-ui",
- "zellij-tile",
-]
-
-[[package]]
-name = "zitree"
-version = "0.1.0"
-dependencies = [
- "plugin-ui",
- "serde",
- "toml",
- "zellij-tile",
 ]
 
 [[package]]

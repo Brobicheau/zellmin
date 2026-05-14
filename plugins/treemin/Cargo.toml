@@ -1,10 +1,12 @@
 [package]
-name = "zitree"
+name = "treemin"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+host-storage = { path = "../../lib/host-storage" }
 plugin-ui = { path = "../../lib/ui" }
+session-registry = { path = "../../lib/session-registry" }
 zellij-tile = "=0.44.1"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"

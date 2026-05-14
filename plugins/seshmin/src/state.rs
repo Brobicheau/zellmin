@@ -5,6 +5,7 @@ use zellij_tile::prelude::*;
 
 use crate::config::Config;
 use crate::session::{SessionItem, SessionManager};
+use crate::storage::treemin_registry;
 use crate::ui;
 use crate::zoxide::{self, SearchEngine, ZoxideDirectory};
 
@@ -105,7 +106,7 @@ impl State {
         self.item_filter = ItemFilter::All;
         self.sessions_loaded = false;
         self.directories_loaded = false;
-        rename_plugin_pane(get_plugin_ids().plugin_id, "zessionz");
+        rename_plugin_pane(get_plugin_ids().plugin_id, "seshmin");
         set_selectable(true);
         subscribe(&[
             EventType::PermissionRequestResult,
@@ -134,6 +135,7 @@ impl State {
                 self.session_manager.update_sessions(sessions);
                 self.session_manager
                     .update_resurrectable_sessions(resurrectable_sessions);
+                self.filter_treemin_sessions();
                 self.sessions_loaded = true;
                 self.refresh_search();
                 self.clamp_selection();
@@ -614,6 +616,29 @@ impl State {
         };
     }
 
+    fn filter_treemin_sessions(&mut self) {
+        let Some(registry) = treemin_registry() else {
+            return;
+        };
+        let Ok(managed_sessions) = registry.list() else {
+            return;
+        };
+
+        self.filter_managed_sessions(&managed_sessions);
+    }
+
+    fn filter_managed_sessions(&mut self, managed_sessions: &std::collections::BTreeSet<String>) {
+        if managed_sessions.is_empty() {
+            return;
+        }
+
+        self.session_manager
+            .retain_sessions(|session| !managed_sessions.contains(&session.name));
+        self.session_manager.retain_resurrectable_sessions(|(name, _)| {
+            !managed_sessions.contains(name)
+        });
+    }
+
     fn refresh_search(&mut self) {
         if self.search_engine.is_searching() {
             let items = self.unfiltered_items();
@@ -749,7 +774,11 @@ fn validate_session_name(session_name: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::*;
+    use crate::storage::test_treemin_registry;
 
     #[test]
     fn matches_incremented_session_names() {
@@ -1106,6 +1135,59 @@ mod tests {
 
         assert!(!items.is_empty());
         assert!(items.iter().all(|item| !item.is_zoxide_item()));
+    }
+
+    #[test]
+    fn filters_out_treemin_managed_sessions() {
+        let root = std::env::temp_dir().join(format!(
+            "seshmin-registry-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let registry = test_treemin_registry(&root);
+        registry.add("repo-feature-a").unwrap();
+
+        let mut state = State::default();
+        state.config.show_resurrectable_sessions = true;
+        state.session_manager.update_sessions(vec![
+            SessionInfo {
+                name: "repo-feature-a".to_string(),
+                ..SessionInfo::default()
+            },
+            SessionInfo {
+                name: "plain-session".to_string(),
+                ..SessionInfo::default()
+            },
+        ]);
+        state.session_manager.update_resurrectable_sessions(vec![
+            ("repo-feature-a".to_string(), std::time::Duration::from_secs(1)),
+            ("plain-dead".to_string(), std::time::Duration::from_secs(1)),
+        ]);
+
+        let managed_sessions = registry.list().unwrap();
+        state.filter_managed_sessions(&managed_sessions);
+
+        let items = state.display_items();
+
+        assert!(!items.iter().any(|item| matches!(
+            item,
+            SessionItem::ExistingSession { name, .. } if name == "repo-feature-a"
+        )));
+        assert!(!items.iter().any(|item| matches!(
+            item,
+            SessionItem::ResurrectableSession { name, .. } if name == "repo-feature-a"
+        )));
+        assert!(items.iter().any(|item| matches!(
+            item,
+            SessionItem::ExistingSession { name, .. } if name == "plain-session"
+        )));
+        assert!(items.iter().any(|item| matches!(
+            item,
+            SessionItem::ResurrectableSession { name, .. } if name == "plain-dead"
+        )));
     }
 
     #[test]

@@ -41,7 +41,7 @@ pub enum CommandAction {
 }
 
 pub fn load_repo_config(repo_root: PathBuf) {
-    let config_path = repo_root.join(".zitree.toml");
+    let config_path = repo_root.join(".treemin.toml");
     let config_path_str = config_path.display().to_string();
     run_command_with_env_variables_and_cwd(
         &["cat", &config_path_str],

@@ -1,36 +1,36 @@
-# zitree
+# treemin
 
 Zellij plugin workspace.
 
 Crates:
 - `lib/ui`: shared boxed terminal UI primitives used by both plugins
-- `plugins/zitree`: create Git worktrees and switch into a session rooted at the new worktree
-- `plugins/zessionz`: zoxide-powered session picker using this repo's boxed terminal UI components
+- `plugins/treemin`: `treemin`, for creating Git worktrees and switching into a session rooted at the new worktree
+- `plugins/seshmin`: `seshmin`, a zoxide-powered session picker using this repo's boxed terminal UI components
 
 ## Workspace Build
 
-Build the original plugin:
+Build `treemin`:
 
 ```bash
-cargo build --release --target wasm32-wasip1 -p zitree
+cargo build --release --target wasm32-wasip1 -p treemin
 ```
 
-Build the new plugin:
+Build `seshmin`:
 
 ```bash
-cargo build --release --target wasm32-wasip1 -p zessionz
+cargo build --release --target wasm32-wasip1 -p seshmin
 ```
 
 Expected plugin artifacts:
 
 ```text
-target/wasm32-wasip1/release/zitree.wasm
-target/wasm32-wasip1/release/zessionz.wasm
+target/wasm32-wasip1/release/treemin.wasm
+target/wasm32-wasip1/release/seshmin.wasm
 ```
 
-## zessionz
+## seshmin
 
-`zessionz` is the MVP sibling plugin modeled after `zsm`.
+`seshmin` is the MVP sibling plugin modeled after `zsm`.
 
 It now consumes the shared `lib/ui` crate instead of maintaining its own copy of the box-panel and ANSI style helpers.
 
@@ -49,7 +49,7 @@ Example keybinding:
 keybinds {
     normal {
         bind "Alt z" {
-            LaunchOrFocusPlugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/zessionz.wasm" {
+            LaunchOrFocusPlugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/seshmin.wasm" {
                 floating true
                 move_to_focused_tab true
                 default_layout "development"
@@ -75,11 +75,11 @@ Configuration options:
 | `base_paths` | String | _(none)_ | Pipe-separated path prefixes stripped before name generation |
 | `ignored_directories` | String | _(none)_ | Pipe-separated directories excluded from zoxide results, including descendants |
 
-## zitree
+## treemin
 
 Zellij plugin for creating Git worktrees and switching into a session rooted at the new worktree.
 
-`zitree` now lives in `plugins/zitree` and also consumes the shared `lib/ui` crate.
+`treemin` now lives in `plugins/treemin` and also consumes the shared `lib/ui` crate.
 
 ## Behavior
 
@@ -93,10 +93,10 @@ Zellij plugin for creating Git worktrees and switching into a session rooted at 
 
 ## Build
 
-This repository is a Rust workspace. Build `zitree` for WASI:
+This repository is a Rust workspace. Build `treemin` for WASI:
 
 ```bash
-cargo build --release --target wasm32-wasip1 -p zitree
+cargo build --release --target wasm32-wasip1 -p treemin
 ```
 
 If your toolchain still expects the legacy target name, use `wasm32-wasi` instead.
@@ -106,8 +106,8 @@ The crate is pinned to `zellij-tile 0.44.1` to match Zellij `0.44.1`.
 Expected plugin artifact:
 
 ```text
-target/wasm32-wasi/release/zitree.wasm
-target/wasm32-wasip1/release/zitree.wasm
+target/wasm32-wasi/release/treemin.wasm
+target/wasm32-wasip1/release/treemin.wasm
 ```
 
 ## Load In Zellij
@@ -118,7 +118,7 @@ Example keybinding with configuration:
 keybinds {
     normal {
         bind "Alt w" {
-            LaunchOrFocusPlugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/zitree.wasm" {
+            LaunchOrFocusPlugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/treemin.wasm" {
                 floating true
                 move_to_focused_tab true
                 worktree_dir_name ".worktrees"
@@ -136,14 +136,14 @@ keybinds {
 You can also launch it directly:
 
 ```bash
-zellij action launch-plugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/zitree.wasm" --floating
+zellij action launch-plugin "file:/absolute/path/to/zitree/target/wasm32-wasip1/release/treemin.wasm" --floating
 ```
 
 ## Configuration
 
 The plugin supports configuration through two methods:
 1. **Zellij KDL configuration** (in your keybindings)
-2. **Repository config file** (`.zitree.toml` in repo root)
+2. **Repository config file** (`.treemin.toml` in repo root)
 
 Repository config takes precedence over KDL config, which takes precedence over defaults.
 
@@ -163,7 +163,7 @@ Repository config takes precedence over KDL config, which takes precedence over 
 Add configuration options to your Zellij keybinding:
 
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
     move_to_focused_tab true
     worktree_dir_name ".worktrees"
@@ -175,7 +175,7 @@ LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
 
 ### Repository Configuration
 
-Create a `.zitree.toml` file in your repository root:
+Create a `.treemin.toml` file in your repository root:
 
 ```toml
 # Directory for worktrees
@@ -207,14 +207,14 @@ worktree_naming_pattern = "branch"
 
 **Minimal setup (defaults):**
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
 }
 ```
 
 **Team workflow with auto-fetch:**
 ```toml
-# .zitree.toml
+# .treemin.toml
 base_branch = "develop"
 auto_fetch = true
 remote = "origin"
@@ -223,7 +223,7 @@ session_prefix = "dev"
 
 **Personal workflow with custom naming:**
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     worktree_dir_name "trees"
     worktree_naming_pattern "branch-hash"
     session_prefix "work"

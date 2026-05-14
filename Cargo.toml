@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib/ui", "plugins/zitree", "plugins/zessionz"]
+members = ["lib/host-storage", "lib/session-registry", "lib/ui", "plugins/treemin", "plugins/seshmin"]
 resolver = "2"
 
 [profile.release]

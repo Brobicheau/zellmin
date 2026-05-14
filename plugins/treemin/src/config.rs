@@ -79,7 +79,7 @@ impl Config {
 
     pub fn from_toml(toml_content: &str) -> Result<Self, String> {
         let repo_config: RepoConfig = toml::from_str(toml_content)
-            .map_err(|error| format!("Failed to parse .zitree.toml: {error}"))?;
+            .map_err(|error| format!("Failed to parse .treemin.toml: {error}"))?;
 
         let mut config = Self::default();
         config.apply_repo_config(repo_config);

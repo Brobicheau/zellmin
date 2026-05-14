@@ -2,9 +2,9 @@
 
 ## Overview
 
-Added comprehensive configuration support to the zitree Zellij plugin with two configuration methods:
+Added comprehensive configuration support to the treemin Zellij plugin with two configuration methods:
 1. **Zellij KDL configuration** - Via plugin launch parameters
-2. **Repository configuration** - Via `.zitree.toml` file in repo root
+2. **Repository configuration** - Via `.treemin.toml` file in repo root
 
 Configuration precedence: **Repo config > KDL config > Defaults**
 
@@ -45,7 +45,7 @@ Configuration precedence: **Repo config > KDL config > Defaults**
 - Added `ACTION_LOAD_REPO_CONFIG` constant
 - Added `ACTION_FETCH_REMOTE` constant
 - Updated `load()` to use `Config::from_kdl()`
-- Added `load_repo_config()` method to read `.zitree.toml`
+- Added `load_repo_config()` method to read `.treemin.toml`
 - Added `check_branch()` helper method
 - Updated `begin_create_worktree()` to support auto-fetch
 - Updated `create_worktree()` to use base_branch
@@ -72,7 +72,7 @@ Configuration precedence: **Repo config > KDL config > Defaults**
 - Common workflow examples
 - Troubleshooting section
 
-**`.zitree.toml.example`** (new)
+**`.treemin.toml.example`** (new)
 - Example repository configuration file
 - Commented template for users
 
@@ -95,7 +95,7 @@ Configuration precedence: **Repo config > KDL config > Defaults**
 ### New Functionality
 
 1. **Repository Config Discovery**
-   - On repo discovery, plugin attempts to read `.zitree.toml`
+   - On repo discovery, plugin attempts to read `.treemin.toml`
    - Merges repo config over KDL config
    - Shows "Loading repository configuration..." status
 
@@ -122,14 +122,14 @@ Configuration precedence: **Repo config > KDL config > Defaults**
 
 ### Minimal (defaults)
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
 }
 ```
 
 ### Customized via KDL
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
     worktree_dir_name "trees"
     session_prefix "dev"
@@ -139,7 +139,7 @@ LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
 
 ### Repository Config
 ```toml
-# .zitree.toml
+# .treemin.toml
 worktree_dir_name = ".worktrees"
 session_prefix = "proj"
 base_branch = "develop"
@@ -181,12 +181,12 @@ worktree_naming_pattern = "branch"
 1. Update Cargo.toml dependencies
 2. Rebuild plugin
 3. Optionally add new config options
-4. Optionally create `.zitree.toml` in repositories
+4. Optionally create `.treemin.toml` in repositories
 
 ## Future Enhancements
 
 Potential additions (not implemented):
-- `.zitree.toml.local` for personal overrides
+- `.treemin.toml.local` for personal overrides
 - Per-branch config sections
 - Config validation and schema
 - Interactive config wizard

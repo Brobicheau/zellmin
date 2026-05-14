@@ -1,9 +1,9 @@
 wasm_target := env_var_or_default("WASM_TARGET", "wasm32-wasip1")
-plugin_name := "zitree"
+plugin_name := "treemin"
 plugin_path := `printf "target/%s/debug/%s.wasm" "{{wasm_target}}" "{{plugin_name}}"`
 release_plugin_path := `printf "target/%s/release/%s.wasm" "{{wasm_target}}" "{{plugin_name}}"`
-zessionz_plugin_path := `printf "target/%s/debug/zessionz.wasm" "{{wasm_target}}"`
-zessionz_release_plugin_path := `printf "target/%s/release/zessionz.wasm" "{{wasm_target}}"`
+seshmin_plugin_path := `printf "target/%s/debug/seshmin.wasm" "{{wasm_target}}"`
+seshmin_release_plugin_path := `printf "target/%s/release/seshmin.wasm" "{{wasm_target}}"`
 
 default:
     @just --list
@@ -39,19 +39,19 @@ release-plugin-path:
     @printf "%s\n" "{{release_plugin_path}}"
 
 reload:
-    zellij action launch-or-focus-plugin "file:$PWD/target/wasm32-wasip1/debug/zitree.wasm" --floating --skip-plugin-cache
+    zellij action launch-or-focus-plugin "file:$PWD/target/wasm32-wasip1/debug/treemin.wasm" --floating --skip-plugin-cache
 
 reload-release:
     zellij action launch-or-focus-plugin "file:$PWD/{{release_plugin_path}}" --floating --skip-plugin-cache
 
-zessionz-plugin-path:
-    @printf "%s\n" "{{zessionz_plugin_path}}"
+seshmin-plugin-path:
+    @printf "%s\n" "{{seshmin_plugin_path}}"
 
-zessionz-release-plugin-path:
-    @printf "%s\n" "{{zessionz_release_plugin_path}}"
+seshmin-release-plugin-path:
+    @printf "%s\n" "{{seshmin_release_plugin_path}}"
 
-reload-zessionz:
-    zellij action launch-or-focus-plugin "file:$PWD/target/wasm32-wasip1/debug/zessionz.wasm" --floating --skip-plugin-cache
+reload-seshmin:
+    zellij action launch-or-focus-plugin "file:$PWD/target/wasm32-wasip1/debug/seshmin.wasm" --floating --skip-plugin-cache
 
-reload-zessionz-release:
-    zellij action launch-or-focus-plugin "file:$PWD/{{zessionz_release_plugin_path}}" --floating --skip-plugin-cache
+reload-seshmin-release:
+    zellij action launch-or-focus-plugin "file:$PWD/{{seshmin_release_plugin_path}}" --floating --skip-plugin-cache

@@ -1,4 +1,5 @@
 use crate::config::{Config, WorktreeNamingPattern};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 // Zellij's IPC socket path can be as short as 103 bytes on macOS, and the
@@ -21,48 +22,21 @@ pub fn worktree_path(repo_root: &Path, config: &Config, branch: &str) -> PathBuf
         .join(worktree_name)
 }
 
-pub fn session_name(repo_name: Option<&str>, branch: &str, config: &Config) -> String {
-    session_name_candidates(repo_name, branch, config)
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| "repo-worktree-00000000".to_string())
+pub fn session_name(branch: &str, sibling_branches: &[String]) -> String {
+    assigned_session_names(sibling_branches)
+        .remove(branch)
+        .unwrap_or_else(|| allocate_session_name(branch, &BTreeSet::new()))
 }
 
 pub fn session_name_candidates(
     repo_name: Option<&str>,
     branch: &str,
     config: &Config,
+    sibling_branches: &[String],
+    is_main_worktree: bool,
 ) -> Vec<String> {
-    let repo = repo_name.unwrap_or("repo");
-    let repo_segment = sanitize_session_segment(repo);
-    let branch_segment = sanitize_session_segment(branch);
-    let prefix = config
-        .session_prefix
-        .as_deref()
-        .map(sanitize_session_segment);
-
-    let hashes = [short_hash(branch), legacy_short_hash(branch)];
-    let mut candidates = Vec::new();
-
-    for branch_hash in hashes {
-        let bounded = bounded_or_unbounded_session_name(
-            prefix.as_deref(),
-            &repo_segment,
-            &branch_segment,
-            &branch_hash,
-            Some(MAX_SESSION_NAME_LEN),
-        );
-        push_unique(&mut candidates, bounded);
-
-        let unbounded = bounded_or_unbounded_session_name(
-            prefix.as_deref(),
-            &repo_segment,
-            &branch_segment,
-            &branch_hash,
-            None,
-        );
-        push_unique(&mut candidates, unbounded);
-    }
+    let mut candidates = vec![session_name(branch, sibling_branches)];
+    append_legacy_session_name_candidates(&mut candidates, repo_name, branch, config, is_main_worktree);
 
     candidates
 }
@@ -203,6 +177,96 @@ fn push_unique(values: &mut Vec<String>, candidate: String) {
     }
 }
 
+fn assigned_session_names(branches: &[String]) -> BTreeMap<String, String> {
+    let mut sorted_branches = branches.to_vec();
+    sorted_branches.sort();
+    sorted_branches.dedup();
+
+    let mut used_names = BTreeSet::new();
+    let mut assigned = BTreeMap::new();
+    for branch in sorted_branches {
+        let session_name = allocate_session_name(&branch, &used_names);
+        used_names.insert(session_name.clone());
+        assigned.insert(branch, session_name);
+    }
+    assigned
+}
+
+fn allocate_session_name(branch: &str, used_names: &BTreeSet<String>) -> String {
+    let sanitized = sanitize_session_segment(branch);
+    let candidate = truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN);
+    if !used_names.contains(&candidate) {
+        return candidate;
+    }
+
+    for counter in 2..=1000 {
+        let suffix = format!(".{counter}");
+        let candidate = format!(
+            "{}{}",
+            truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN.saturating_sub(suffix.len())),
+            suffix,
+        );
+        if !used_names.contains(&candidate) {
+            return candidate;
+        }
+    }
+
+    format!(
+        "{}{}",
+        truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN.saturating_sub(9)),
+        ".overflow"
+    )
+}
+
+fn truncate_to_length(input: &str, max_len: usize) -> String {
+    input.chars().take(max_len).collect()
+}
+
+fn append_legacy_session_name_candidates(
+    candidates: &mut Vec<String>,
+    repo_name: Option<&str>,
+    branch: &str,
+    config: &Config,
+    is_main_worktree: bool,
+) {
+    let repo = repo_name.unwrap_or("repo");
+    let repo_segment = sanitize_session_segment(repo);
+    let branch_segment = sanitize_session_segment(branch);
+    let prefix = config
+        .session_prefix
+        .as_deref()
+        .map(sanitize_session_segment);
+
+    if is_main_worktree {
+        push_unique(candidates, main_worktree_session_name(repo));
+    }
+
+    let hashes = [short_hash(branch), legacy_short_hash(branch)];
+    for branch_hash in hashes {
+        let bounded = bounded_or_unbounded_session_name(
+            prefix.as_deref(),
+            &repo_segment,
+            &branch_segment,
+            &branch_hash,
+            Some(MAX_SESSION_NAME_LEN),
+        );
+        push_unique(candidates, bounded);
+
+        let unbounded = bounded_or_unbounded_session_name(
+            prefix.as_deref(),
+            &repo_segment,
+            &branch_segment,
+            &branch_hash,
+            None,
+        );
+        push_unique(candidates, unbounded);
+    }
+}
+
+fn main_worktree_session_name(repo_name: &str) -> String {
+    repo_name.to_string()
+}
+
 fn separator_count(has_prefix: bool) -> usize {
     if has_prefix {
         3
@@ -255,60 +319,71 @@ mod tests {
 
     #[test]
     fn keeps_short_session_names_unchanged() {
-        let config = Config::default();
-
-        assert_eq!(
-            session_name(Some("repo"), "feature/test", &config),
-            "repo-feature-test-727724f6"
-        );
+        assert_eq!(session_name("feature/test", &["feature/test".to_string()]), "feature-test");
     }
 
     #[test]
-    fn includes_legacy_session_name_variants() {
+    fn includes_branch_only_and_legacy_session_name_variants() {
         let config = Config::default();
 
-        let candidates = session_name_candidates(Some("zitree"), "test/tree", &config);
+        let candidates = session_name_candidates(
+            Some("treemin"),
+            "test/tree",
+            &config,
+            &["test/tree".to_string()],
+            false,
+        );
 
-        assert!(candidates
-            .iter()
-            .any(|candidate| candidate == "zitree-test-tree-377d9d196e84c82"));
+        assert_eq!(candidates.first().map(String::as_str), Some("test-tree"));
+        assert!(candidates.iter().any(|candidate| candidate == "treemin-test-tree-377d9d196e84c82"));
         assert!(candidates
             .iter()
             .any(|candidate| candidate == "z-2dfa96-t-a4b6eb-96e84c82"));
     }
 
     #[test]
-    fn shortens_long_session_names_to_safe_length() {
-        let mut config = Config::default();
-        config.session_prefix = Some("workspace".to_string());
-
+    fn shortens_long_branch_only_session_names_to_safe_length() {
         let session = session_name(
-            Some("very-long-repository-name-that-would-overflow"),
             "feature/with-a-very-long-branch-name-that-would-also-overflow",
-            &config,
+            &["feature/with-a-very-long-branch-name-that-would-also-overflow".to_string()],
         );
 
         assert!(session.len() <= MAX_SESSION_NAME_LEN);
-        assert!(session.ends_with("-96e84c82"));
-        assert_eq!(session.matches('-').count(), 3);
+        assert!(session.starts_with("feature-with-a-very-lon"));
     }
 
     #[test]
-    fn short_hash_is_always_eight_hex_chars() {
-        assert_eq!(short_hash("feature/test").len(), 8);
-        assert_eq!(
-            short_hash("feature/with-a-very-long-branch-name-that-would-also-overflow").len(),
-            8
+    fn adds_numeric_suffix_when_branch_only_name_collides() {
+        let branches = vec!["feature/test".to_string(), "feature-test".to_string()];
+
+        assert_eq!(session_name("feature/test", &branches), "feature-test");
+        assert_eq!(session_name("feature-test", &branches), "feature-test.2");
+    }
+
+    #[test]
+    fn collision_suffix_skips_taken_natural_branch_name() {
+        let branches = vec![
+            "feature/test".to_string(),
+            "feature-test".to_string(),
+            "feature-test.2".to_string(),
+        ];
+
+        assert_eq!(session_name("feature-test.2", &branches), "feature-test.2");
+        assert_eq!(session_name("feature-test", &branches), "feature-test.3");
+    }
+
+    #[test]
+    fn keeps_legacy_repo_name_candidate_for_main_worktree_matching() {
+        let config = Config::default();
+        let candidates = session_name_candidates(
+            Some("repo"),
+            "main",
+            &config,
+            &["main".to_string()],
+            true,
         );
-    }
 
-    #[test]
-    fn truncation_keeps_visible_character_for_tight_budgets() {
-        assert_eq!(truncate_session_segment("repo-name", 7), "r-bb5357");
-    }
-
-    #[test]
-    fn truncation_falls_back_to_plain_prefix_when_budget_is_too_small_for_hash_suffix() {
-        assert_eq!(truncate_session_segment("repo-name", 2), "re");
+        assert_eq!(candidates.first().map(String::as_str), Some("main"));
+        assert!(candidates.iter().any(|candidate| candidate == "repo"));
     }
 }

@@ -13,8 +13,22 @@ impl SessionManager {
         self.sessions = sessions;
     }
 
+    pub fn retain_sessions<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut(&SessionInfo) -> bool,
+    {
+        self.sessions.retain(|session| predicate(session));
+    }
+
     pub fn update_resurrectable_sessions(&mut self, sessions: Vec<(String, Duration)>) {
         self.resurrectable_sessions = sessions;
+    }
+
+    pub fn retain_resurrectable_sessions<F>(&mut self, mut predicate: F)
+    where
+        F: FnMut(&(String, Duration)) -> bool,
+    {
+        self.resurrectable_sessions.retain(|session| predicate(session));
     }
 
     pub fn sessions(&self) -> &[SessionInfo] {

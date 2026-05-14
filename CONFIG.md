@@ -1,13 +1,13 @@
-# Zitree Configuration Guide
+# Treemin Configuration Guide
 
-This guide explains how to configure the zitree Zellij plugin for your workflow.
+This guide explains how to configure the treemin Zellij plugin for your workflow.
 
 ## Configuration Methods
 
-Zitree supports two configuration methods that work together:
+Treemin supports two configuration methods that work together:
 
 1. **Zellij KDL Configuration** - Global or keybinding-specific settings
-2. **Repository Configuration** - Per-repository `.zitree.toml` file
+2. **Repository Configuration** - Per-repository `.treemin.toml` file
 
 **Precedence:** Repository config > KDL config > Defaults
 
@@ -17,7 +17,7 @@ Zitree supports two configuration methods that work together:
 
 ```kdl
 bind "Alt w" {
-    LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+    LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
         floating true
     }
 }
@@ -33,7 +33,7 @@ This uses all defaults:
 
 ```kdl
 bind "Alt w" {
-    LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+    LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
         floating true
         move_to_focused_tab true
         worktree_dir_name ".worktrees"
@@ -70,7 +70,7 @@ worktree_dir_name = ".worktrees"
 
 **Type:** String (optional)  
 **Default:** None  
-**Description:** Prefix for Zellij session names. If the full generated name would be too long for Zellij's IPC socket path, zitree shortens it automatically while keeping it deterministic. This is especially important on macOS, where the default temporary directory path is often already long.
+**Description:** Prefix for Zellij session names. If the full generated name would be too long for Zellij's IPC socket path, treemin shortens it automatically while keeping it deterministic. This is especially important on macOS, where the default temporary directory path is often already long.
 
 **Examples:**
 ```kdl
@@ -194,7 +194,7 @@ worktree_naming_pattern = "branch"
 
 ```kdl
 # Zellij config - simple and fast
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
     worktree_dir_name "trees"
     session_prefix "work"
@@ -205,12 +205,12 @@ LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
 
 **Zellij config:**
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/zitree.wasm" {
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     floating true
 }
 ```
 
-**Repository `.zitree.toml`:**
+**Repository `.treemin.toml`:**
 ```toml
 # Committed to repo, shared by team
 base_branch = "develop"
@@ -222,7 +222,7 @@ worktree_naming_pattern = "branch"
 ### Fork Workflow
 
 ```toml
-# .zitree.toml for upstream tracking
+# .treemin.toml for upstream tracking
 remote = "upstream"
 auto_fetch = true
 base_branch = "main"
@@ -245,7 +245,7 @@ worktree_naming_pattern = "branch"
 
 ## Repository Configuration
 
-Create `.zitree.toml` in your repository root:
+Create `.treemin.toml` in your repository root:
 
 ```toml
 # Example complete configuration
@@ -264,12 +264,12 @@ worktree_naming_pattern = "branch-hash"
 - Overrides personal Zellij config
 
 **Gitignore:**
-You may want to ignore `.zitree.toml.local` for personal overrides (not currently supported, but could be added).
+You may want to ignore `.treemin.toml.local` for personal overrides (not currently supported, but could be added).
 
 ## Tips
 
 1. **Start simple** - Use defaults first, add config as needed
-2. **Team config in repo** - Commit `.zitree.toml` for consistency
+2. **Team config in repo** - Commit `.treemin.toml` for consistency
 3. **Auto-fetch for teams** - Ensures everyone has latest branches
 4. **Session prefix for organization** - Group sessions by project type
 5. **Hash pattern for compatibility** - Avoid filesystem issues with special chars
@@ -277,13 +277,13 @@ You may want to ignore `.zitree.toml.local` for personal overrides (not currentl
 ## Troubleshooting
 
 **Config not loading:**
-- Check `.zitree.toml` is in repository root (where `.git` is)
-- Verify TOML syntax with `cat .zitree.toml`
+- Check `.treemin.toml` is in repository root (where `.git` is)
+- Verify TOML syntax with `cat .treemin.toml`
 - Plugin shows "Loading repository configuration..." status
 
 **Wrong config applied:**
 - Remember: Repo config > KDL config > Defaults
-- Check both `.zitree.toml` and Zellij keybinding config
+- Check both `.treemin.toml` and Zellij keybinding config
 - Reload plugin to pick up config changes
 
 **Auto-fetch slow:**

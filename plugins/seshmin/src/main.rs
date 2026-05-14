@@ -1,5 +1,6 @@
 mod config;
 mod session;
+mod storage;
 mod state;
 mod ui;
 mod zoxide;
