@@ -1,3 +1,6 @@
+# Warning
+This was almost excluively vibe-coded
+
 # treemin
 
 Zellij plugin workspace.
