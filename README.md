@@ -160,6 +160,7 @@ Repository config takes precedence over KDL config, which takes precedence over 
 | `remote` | String | `origin` | Git remote to use when checking out branches |
 | `auto_fetch` | Boolean | `false` | Whether to fetch from remote before creating worktree |
 | `worktree_naming_pattern` | String | `branch` | Pattern for worktree directory naming: "branch", "hash", or "branch-hash" |
+| `truncate_session_names` | Boolean | `true` | Whether to truncate session names to 24 characters; disable only if you have sufficient socket path space (macOS: ~103 bytes, Linux: ~108 bytes) |
 
 ### Zellij KDL Configuration
 
@@ -173,6 +174,7 @@ LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
     session_prefix "wt"
     base_branch "main"
     auto_fetch "true"
+    truncate_session_names "true"
 }
 ```
 
@@ -198,6 +200,9 @@ auto_fetch = true
 
 # Worktree naming pattern: "branch", "hash", or "branch-hash"
 worktree_naming_pattern = "branch"
+
+# Truncate session names to 24 characters (recommended for socket path limits)
+truncate_session_names = true
 ```
 
 **Benefits of repository config:**

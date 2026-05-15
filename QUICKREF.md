@@ -17,12 +17,13 @@ LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
 
 ```toml
 # Method 2: Repository .treemin.toml
-worktree_dir_name = ".worktrees"
+```toml
 session_prefix = "wt"
 base_branch = "main"
 remote = "origin"
 auto_fetch = true
 worktree_naming_pattern = "branch"
+truncate_session_names = true
 ```
 
 **Precedence:** Repo > KDL > Defaults
@@ -37,6 +38,7 @@ worktree_naming_pattern = "branch"
 | `remote` | string | `origin` |
 | `auto_fetch` | bool | `false` |
 | `worktree_naming_pattern` | `branch` \| `hash` \| `branch-hash` | `branch` |
+| `truncate_session_names` | bool | `true` |
 
 ## Naming Patterns
 
@@ -57,7 +59,15 @@ With prefix:   wt-myrepo-feature-abc123
 
 **Minimal:**
 ```kdl
-LaunchOrFocusPlugin "file:/path/to/treemin.wasm" { floating true }
+LaunchOrFocusPlugin "file:/path/to/treemin.wasm" {
+    worktree_dir_name ".worktrees"
+    session_prefix "wt"
+    base_branch "main"
+    remote "origin"
+    auto_fetch "true"
+    worktree_naming_pattern "branch"
+    truncate_session_names "true"
+}
 ```
 
 **Team workflow:**

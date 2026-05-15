@@ -25,6 +25,7 @@ pub fn worktree_path(repo_root: &Path, config: &Config, branch: &str) -> PathBuf
 pub fn session_name(
     repo_name: Option<&str>,
     branch: &str,
+    config: &Config,
     sibling_branches: &[String],
     is_main_worktree: bool,
 ) -> String {
@@ -32,9 +33,9 @@ pub fn session_name(
         return main_worktree_session_name(repo_name.unwrap_or("repo"));
     }
 
-    assigned_session_names(repo_name, sibling_branches)
+    assigned_session_names(repo_name, config, sibling_branches)
         .remove(branch)
-        .unwrap_or_else(|| allocate_session_name(&linked_worktree_session_name(repo_name, branch), &BTreeSet::new()))
+        .unwrap_or_else(|| allocate_session_name(&linked_worktree_session_name(repo_name, branch), config, &BTreeSet::new()))
 }
 
 pub fn session_name_candidates(
@@ -47,6 +48,7 @@ pub fn session_name_candidates(
     let mut candidates = vec![session_name(
         repo_name,
         branch,
+        config,
         sibling_branches,
         is_main_worktree,
     )];
@@ -191,7 +193,7 @@ fn push_unique(values: &mut Vec<String>, candidate: String) {
     }
 }
 
-fn assigned_session_names(repo_name: Option<&str>, branches: &[String]) -> BTreeMap<String, String> {
+fn assigned_session_names(repo_name: Option<&str>, config: &Config, branches: &[String]) -> BTreeMap<String, String> {
     let mut sorted_branches = branches.to_vec();
     sorted_branches.sort();
     sorted_branches.dedup();
@@ -199,7 +201,7 @@ fn assigned_session_names(repo_name: Option<&str>, branches: &[String]) -> BTree
     let mut used_names = BTreeSet::new();
     let mut assigned = BTreeMap::new();
     for branch in sorted_branches {
-        let session_name = allocate_session_name(&linked_worktree_session_name(repo_name, &branch), &used_names);
+        let session_name = allocate_session_name(&linked_worktree_session_name(repo_name, &branch), config, &used_names);
         used_names.insert(session_name.clone());
         assigned.insert(branch, session_name);
     }
@@ -222,30 +224,50 @@ fn legacy_linked_worktree_session_name(repo_name: Option<&str>, branch: &str) ->
     }
 }
 
-fn allocate_session_name(branch: &str, used_names: &BTreeSet<String>) -> String {
+fn allocate_session_name(branch: &str, config: &Config, used_names: &BTreeSet<String>) -> String {
     let sanitized = sanitize_session_segment(branch);
-    let candidate = truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN);
+    let max_len = if config.truncate_session_names {
+        Some(MAX_SESSION_NAME_LEN)
+    } else {
+        None
+    };
+    
+    let candidate = if let Some(max_len) = max_len {
+        truncate_to_length(&sanitized, max_len)
+    } else {
+        sanitized.clone()
+    };
+    
     if !used_names.contains(&candidate) {
         return candidate;
     }
 
     for counter in 2..=1000 {
         let suffix = format!(".{counter}");
-        let candidate = format!(
-            "{}{}",
-            truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN.saturating_sub(suffix.len())),
-            suffix,
-        );
+        let candidate = if let Some(max_len) = max_len {
+            format!(
+                "{}{}",
+                truncate_to_length(&sanitized, max_len.saturating_sub(suffix.len())),
+                suffix,
+            )
+        } else {
+            format!("{}{}", sanitized, suffix)
+        };
         if !used_names.contains(&candidate) {
             return candidate;
         }
     }
 
-    format!(
-        "{}{}",
-        truncate_to_length(&sanitized, MAX_SESSION_NAME_LEN.saturating_sub(9)),
-        ".overflow"
-    )
+    let overflow_suffix = ".overflow";
+    if let Some(max_len) = max_len {
+        format!(
+            "{}{}",
+            truncate_to_length(&sanitized, max_len.saturating_sub(overflow_suffix.len())),
+            overflow_suffix
+        )
+    } else {
+        format!("{}{}", sanitized, overflow_suffix)
+    }
 }
 
 fn truncate_to_length(input: &str, max_len: usize) -> String {
@@ -275,6 +297,7 @@ fn append_legacy_session_name_candidates(
     if !is_main_worktree {
         let legacy_name = allocate_session_name(
             &legacy_linked_worktree_session_name(repo_name, branch),
+            config,
             &BTreeSet::new()
         );
         push_unique(candidates, legacy_name);
@@ -358,8 +381,9 @@ mod tests {
 
     #[test]
     fn keeps_short_session_names_unchanged() {
+        let config = Config::default();
         assert_eq!(
-            session_name(Some("repo"), "feature/test", &["feature/test".to_string()], false),
+            session_name(Some("repo"), "feature/test", &config, &["feature/test".to_string()], false),
             "repo|feature-test"
         );
     }
@@ -386,9 +410,11 @@ mod tests {
 
     #[test]
     fn shortens_long_branch_only_session_names_to_safe_length() {
+        let config = Config::default();
         let session = session_name(
             Some("repo"),
             "feature/with-a-very-long-branch-name-that-would-also-overflow",
+            &config,
             &["feature/with-a-very-long-branch-name-that-would-also-overflow".to_string()],
             false,
         );
@@ -399,20 +425,22 @@ mod tests {
 
     #[test]
     fn adds_numeric_suffix_when_branch_only_name_collides() {
+        let config = Config::default();
         let branches = vec!["feature/test".to_string(), "feature-test".to_string()];
 
         assert_eq!(
-            session_name(Some("repo"), "feature/test", &branches, false),
+            session_name(Some("repo"), "feature/test", &config, &branches, false),
             "repo|feature-test"
         );
         assert_eq!(
-            session_name(Some("repo"), "feature-test", &branches, false),
+            session_name(Some("repo"), "feature-test", &config, &branches, false),
             "repo|feature-test.2"
         );
     }
 
     #[test]
     fn collision_suffix_skips_taken_natural_branch_name() {
+        let config = Config::default();
         let branches = vec![
             "feature/test".to_string(),
             "feature-test".to_string(),
@@ -420,11 +448,11 @@ mod tests {
         ];
 
         assert_eq!(
-            session_name(Some("repo"), "feature-test.2", &branches, false),
+            session_name(Some("repo"), "feature-test.2", &config, &branches, false),
             "repo|feature-test.2"
         );
         assert_eq!(
-            session_name(Some("repo"), "feature-test", &branches, false),
+            session_name(Some("repo"), "feature-test", &config, &branches, false),
             "repo|feature-test.3"
         );
     }
@@ -442,5 +470,59 @@ mod tests {
 
         assert_eq!(candidates.first().map(String::as_str), Some("repo"));
         assert!(candidates.iter().any(|candidate| candidate == "repo-main-17c9aaa7"));
+    }
+
+    #[test]
+    fn long_session_names_are_not_truncated_when_disabled() {
+        let mut config = Config::default();
+        config.truncate_session_names = false;
+
+        let session = session_name(
+            Some("repo"),
+            "feature/with-a-very-long-branch-name-that-would-also-overflow",
+            &config,
+            &["feature/with-a-very-long-branch-name-that-would-also-overflow".to_string()],
+            false,
+        );
+
+        // Should not be truncated, exceeding MAX_SESSION_NAME_LEN (24)
+        assert!(session.len() > MAX_SESSION_NAME_LEN);
+        assert_eq!(session, "repo|feature-with-a-very-long-branch-name-that-would-also-overflow");
+    }
+
+    #[test]
+    fn collision_suffixes_work_without_truncation() {
+        let mut config = Config::default();
+        config.truncate_session_names = false;
+
+        let branches = vec![
+            "feature/with-a-very-long-name".to_string(),
+            "feature-with-a-very-long-name".to_string(),
+        ];
+
+        let first = session_name(Some("repo"), "feature/with-a-very-long-name", &config, &branches, false);
+        let second = session_name(Some("repo"), "feature-with-a-very-long-name", &config, &branches, false);
+
+        assert_eq!(first, "repo|feature-with-a-very-long-name");
+        assert_eq!(second, "repo|feature-with-a-very-long-name.2");
+        assert!(first.len() > MAX_SESSION_NAME_LEN);
+        assert!(second.len() > MAX_SESSION_NAME_LEN);
+    }
+
+    #[test]
+    fn truncation_is_enabled_by_default() {
+        let config = Config::default();
+        assert!(config.truncate_session_names);
+
+        let long_branch = "a".repeat(100);
+        let session = session_name(
+            Some("repo"),
+            &long_branch,
+            &config,
+            &[long_branch.clone()],
+            false,
+        );
+
+        assert!(session.len() <= MAX_SESSION_NAME_LEN);
     }
 }

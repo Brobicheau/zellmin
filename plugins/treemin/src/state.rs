@@ -790,7 +790,7 @@ impl State {
 
     fn session_name(&self, branch: &str) -> String {
         let sibling_branches = sibling_branches_with(self.known_worktrees.iter(), branch);
-        naming::session_name(self.repo_name.as_deref(), branch, &sibling_branches, false)
+        naming::session_name(self.repo_name.as_deref(), branch, &self.config, &sibling_branches, false)
     }
 }
 
@@ -822,6 +822,7 @@ fn build_worktree_sessions(
             let session_name = naming::session_name(
                 Some(repo_name),
                 &worktree.branch,
+                config,
                 &sibling_branches,
                 is_main_worktree,
             );

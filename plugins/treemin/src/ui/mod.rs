@@ -85,6 +85,13 @@ fn render_ready(
         );
     }
 
+    if !config.truncate_session_names {
+        panel.print_key_value(
+            "Session truncation",
+            "disabled (may hit socket path limits)",
+        );
+    }
+
     panel.print_section_header("Create Worktree");
     panel.print_line(&style("Press Ctrl+H to show help", DIM, Some(WHITE)));
     let branch_value = if branch_input.is_empty() {

@@ -10,6 +10,7 @@ pub struct Config {
     pub remote: String,
     pub auto_fetch: bool,
     pub worktree_naming_pattern: WorktreeNamingPattern,
+    pub truncate_session_names: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -28,6 +29,7 @@ struct RepoConfig {
     remote: Option<String>,
     auto_fetch: Option<bool>,
     worktree_naming_pattern: Option<WorktreeNamingPattern>,
+    truncate_session_names: Option<bool>,
 }
 
 impl Default for Config {
@@ -39,6 +41,7 @@ impl Default for Config {
             remote: "origin".to_string(),
             auto_fetch: false,
             worktree_naming_pattern: WorktreeNamingPattern::Branch,
+            truncate_session_names: true,
         }
     }
 }
@@ -72,6 +75,10 @@ impl Config {
             if let Some(pattern) = WorktreeNamingPattern::from_str(pattern) {
                 config.worktree_naming_pattern = pattern;
             }
+        }
+
+        if let Some(truncate_session_names) = configuration.get("truncate_session_names") {
+            config.truncate_session_names = truncate_session_names.trim().eq_ignore_ascii_case("true");
         }
 
         config
@@ -112,6 +119,10 @@ impl Config {
         if repo_config.worktree_naming_pattern != default.worktree_naming_pattern {
             self.worktree_naming_pattern = repo_config.worktree_naming_pattern;
         }
+
+        if repo_config.truncate_session_names != default.truncate_session_names {
+            self.truncate_session_names = repo_config.truncate_session_names;
+        }
     }
 
     fn apply_repo_config(&mut self, repo_config: RepoConfig) {
@@ -137,6 +148,10 @@ impl Config {
 
         if let Some(worktree_naming_pattern) = repo_config.worktree_naming_pattern {
             self.worktree_naming_pattern = worktree_naming_pattern;
+        }
+
+        if let Some(truncate_session_names) = repo_config.truncate_session_names {
+            self.truncate_session_names = truncate_session_names;
         }
     }
 }
@@ -177,6 +192,7 @@ mod tests {
         assert_eq!(config.remote, "origin");
         assert!(!config.auto_fetch);
         assert_eq!(config.worktree_naming_pattern, WorktreeNamingPattern::Branch);
+        assert!(config.truncate_session_names);
     }
 
     #[test]
@@ -238,5 +254,45 @@ base_branch = "main"
         assert_eq!(config.worktree_dir_name, "repo-trees");
         assert_eq!(config.session_prefix, Some("kdl".to_string()));
         assert_eq!(config.base_branch, Some("main".to_string()));
+    }
+
+    #[test]
+    fn truncate_session_names_can_be_disabled_via_kdl() {
+        let mut kdl = BTreeMap::new();
+        kdl.insert("truncate_session_names".to_string(), "false".to_string());
+
+        let config = Config::from_kdl(kdl);
+
+        assert!(!config.truncate_session_names);
+    }
+
+    #[test]
+    fn truncate_session_names_can_be_disabled_via_toml() {
+        let config = Config::from_toml(
+            r#"
+truncate_session_names = false
+"#,
+        )
+        .unwrap();
+
+        assert!(!config.truncate_session_names);
+    }
+
+    #[test]
+    fn repo_config_can_override_truncate_session_names() {
+        let mut kdl = BTreeMap::new();
+        kdl.insert("truncate_session_names".to_string(), "true".to_string());
+
+        let mut config = Config::from_kdl(kdl);
+        let repo_config = Config::from_toml(
+            r#"
+truncate_session_names = false
+"#,
+        )
+        .unwrap();
+
+        config.merge(repo_config);
+
+        assert!(!config.truncate_session_names);
     }
 }
