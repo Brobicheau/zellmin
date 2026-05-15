@@ -790,7 +790,7 @@ impl State {
 
     fn session_name(&self, branch: &str) -> String {
         let sibling_branches = sibling_branches_with(self.known_worktrees.iter(), branch);
-        naming::session_name(branch, &sibling_branches)
+        naming::session_name(self.repo_name.as_deref(), branch, &sibling_branches, false)
     }
 }
 
@@ -819,7 +819,12 @@ fn build_worktree_sessions(
                 live_session_names,
             );
             let live_session_name = generated_live_session_name;
-            let session_name = naming::session_name(&worktree.branch, &sibling_branches);
+            let session_name = naming::session_name(
+                Some(repo_name),
+                &worktree.branch,
+                &sibling_branches,
+                is_main_worktree,
+            );
 
             WorktreeSessionEntry {
                 branch: worktree.branch.clone(),
@@ -954,22 +959,22 @@ mod tests {
             WorktreeSessionEntry {
                 branch: "main".to_string(),
                 path: Some(PathBuf::from("/tmp/repo")),
-                session_name: "main".to_string(),
-                live_session_name: Some("main".to_string()),
+                session_name: "repo".to_string(),
+                live_session_name: Some("repo".to_string()),
                 has_live_session: true,
                 is_current: true,
             },
             WorktreeSessionEntry {
                 branch: "feature".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
-                session_name: "feature".to_string(),
-                live_session_name: Some("feature".to_string()),
+                session_name: "repo|feature".to_string(),
+                live_session_name: Some("repo|feature".to_string()),
                 has_live_session: true,
                 is_current: false,
             },
         ];
 
-        let selected_index = selected_index_for_sessions(&sessions, Some("feature"));
+        let selected_index = selected_index_for_sessions(&sessions, Some("repo|feature"));
 
         assert_eq!(selected_index, Some(1));
     }
@@ -988,8 +993,8 @@ mod tests {
             WorktreeSessionEntry {
                 branch: "feature".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
-                session_name: "feature".to_string(),
-                live_session_name: Some("feature".to_string()),
+                session_name: "repo|feature".to_string(),
+                live_session_name: Some("repo|feature".to_string()),
                 has_live_session: true,
                 is_current: false,
             },
@@ -1020,14 +1025,14 @@ mod tests {
             &worktrees,
             &[
                 "repo".to_string(),
-                "feature-test".to_string(),
+                "repo|feature-test".to_string(),
             ],
         );
 
         assert_eq!(sessions.len(), 2);
         assert_eq!(sessions[0].branch, "main");
         assert_eq!(sessions[0].path, Some(PathBuf::from("/tmp/repo")));
-        assert_eq!(sessions[0].session_name, "main");
+        assert_eq!(sessions[0].session_name, "repo");
         assert_eq!(
             sessions[0].live_session_name.as_deref(),
             Some("repo")
@@ -1039,9 +1044,9 @@ mod tests {
         );
         assert_eq!(
             sessions[1].live_session_name.as_deref(),
-            Some("feature-test")
+            Some("repo|feature-test")
         );
-        assert_eq!(sessions[1].session_name, "feature-test");
+        assert_eq!(sessions[1].session_name, "repo|feature-test");
     }
 
     #[test]
@@ -1086,16 +1091,16 @@ mod tests {
                 WorktreeSessionEntry {
                     branch: "feature-a".to_string(),
                     path: Some(PathBuf::from("/tmp/repo/.worktrees/feature-a")),
-                    session_name: "repo-feature-a".to_string(),
-                    live_session_name: Some("repo-feature-a".to_string()),
+                    session_name: "repo|feature-a".to_string(),
+                    live_session_name: Some("repo|feature-a".to_string()),
                     has_live_session: true,
                     is_current: false,
                 },
                 WorktreeSessionEntry {
                     branch: "feature-b".to_string(),
                     path: Some(PathBuf::from("/tmp/repo/.worktrees/feature-b")),
-                    session_name: "repo-feature-b".to_string(),
-                    live_session_name: Some("repo-feature-b".to_string()),
+                    session_name: "repo|feature-b".to_string(),
+                    live_session_name: Some("repo|feature-b".to_string()),
                     has_live_session: true,
                     is_current: false,
                 },
@@ -1132,6 +1137,7 @@ mod tests {
             sessions[0].path,
             Some(PathBuf::from("/tmp/repo/.worktrees/feature"))
         );
+        assert_eq!(sessions[0].session_name, "repo|feature-test");
         assert_eq!(sessions[0].live_session_name, None);
         assert!(!sessions[0].has_live_session);
     }
@@ -1144,7 +1150,7 @@ mod tests {
             Some("repo"),
             &config,
             &[],
-            &["feature-test".to_string()],
+            &["repo|feature-test".to_string()],
         );
 
         assert!(sessions.is_empty());
@@ -1167,7 +1173,7 @@ mod tests {
 
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].branch, "main");
-        assert_eq!(sessions[0].session_name, "main");
+        assert_eq!(sessions[0].session_name, "repo");
         assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo"));
         assert!(sessions[0].has_live_session);
     }
@@ -1189,6 +1195,7 @@ mod tests {
 
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].branch, "feature/test");
+        assert_eq!(sessions[0].session_name, "repo|feature-test");
         assert_eq!(sessions[0].live_session_name, None);
         assert!(!sessions[0].has_live_session);
     }
@@ -1209,7 +1216,7 @@ mod tests {
         );
 
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].session_name, "main");
+        assert_eq!(sessions[0].session_name, "repo");
         assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo"));
     }
 
@@ -1218,7 +1225,7 @@ mod tests {
         let mut state = State {
             repo_root: Some(PathBuf::from("/tmp/repo")),
             repo_name: Some("repo".to_string()),
-            live_session_names: vec!["feature-test".to_string()],
+            live_session_names: vec!["repo|feature-test".to_string()],
             ..State::default()
         };
 
@@ -1227,12 +1234,12 @@ mod tests {
         assert!(matches!(
             state.status,
             Status::Success(ref message)
-                if message == "Created worktree `/tmp/repo/.worktrees/feature/test`. Switching to session `feature-test`..."
+                if message == "Created worktree `/tmp/repo/.worktrees/feature/test`. Switching to session `repo|feature-test`..."
         ));
         assert_eq!(state.worktree_sessions.len(), 1);
         assert_eq!(
             state.worktree_sessions[0].live_session_name.as_deref(),
-            Some("feature-test")
+            Some("repo|feature-test")
         );
     }
 
@@ -1248,7 +1255,7 @@ mod tests {
                 false,
             )
                 .into_iter()
-                .find(|candidate| candidate != "feature-test")
+                .find(|candidate| candidate != "repo-name-feature-test")
                 .expect("expected a secondary session name candidate");
 
         let mut state = State {
@@ -1271,7 +1278,7 @@ mod tests {
         assert_eq!(state.worktree_sessions.len(), 1);
         assert_eq!(
             state.worktree_sessions[0].session_name,
-            "feature-test"
+            "repo-name|feature-test"
         );
         assert_eq!(
             state.worktree_sessions[0].live_session_name.as_deref(),
@@ -1292,7 +1299,7 @@ mod tests {
         assert!(matches!(
             state.status,
             Status::Busy(ref message)
-                if message == "Creating session `feature-test` in `/tmp/repo/.worktrees/feature/test`..."
+                if message == "Creating session `repo|feature-test` in `/tmp/repo/.worktrees/feature/test`..."
         ));
         assert!(state.worktree_sessions.is_empty());
     }
@@ -1303,7 +1310,7 @@ mod tests {
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "feature/test".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
-                session_name: "feature-test".to_string(),
+                session_name: "repo|feature-test".to_string(),
                 live_session_name: None,
                 has_live_session: false,
                 is_current: false,
@@ -1317,7 +1324,7 @@ mod tests {
         assert!(matches!(
             state.status,
             Status::Busy(ref message)
-                if message == "Creating session `feature-test` in `/tmp/repo/.worktrees/feature`..."
+                if message == "Creating session `repo|feature-test` in `/tmp/repo/.worktrees/feature`..."
         ));
     }
 
@@ -1341,8 +1348,8 @@ mod tests {
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "main".to_string(),
                 path: Some(PathBuf::from("/tmp/repo")),
-                session_name: "main".to_string(),
-                live_session_name: Some("main".to_string()),
+                session_name: "repo".to_string(),
+                live_session_name: Some("repo".to_string()),
                 has_live_session: true,
                 is_current: true,
             }],
@@ -1364,7 +1371,7 @@ mod tests {
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "feature/test".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
-                session_name: "feature-test".to_string(),
+                session_name: "repo|feature-test".to_string(),
                 live_session_name: None,
                 has_live_session: false,
                 is_current: false,
@@ -1387,7 +1394,7 @@ mod tests {
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "main".to_string(),
                 path: Some(PathBuf::from("/tmp/repo")),
-                session_name: "main".to_string(),
+                session_name: "repo".to_string(),
                 live_session_name: None,
                 has_live_session: false,
                 is_current: false,
@@ -1411,12 +1418,12 @@ mod tests {
             worktree_sessions: vec![WorktreeSessionEntry {
                 branch: "feature/test".to_string(),
                 path: Some(PathBuf::from("/tmp/repo/.worktrees/feature")),
-                session_name: "feature-test".to_string(),
-                live_session_name: Some("feature-test".to_string()),
+                session_name: "repo|feature-test".to_string(),
+                live_session_name: Some("repo|feature-test".to_string()),
                 has_live_session: true,
                 is_current: false,
             }],
-            live_session_names: vec!["feature-test".to_string()],
+            live_session_names: vec!["repo|feature-test".to_string()],
             ..State::default()
         };
 
@@ -1426,14 +1433,14 @@ mod tests {
             Vec::new(),
             BTreeMap::from([
                 ("action".to_string(), "delete-session".to_string()),
-                ("session".to_string(), "feature-test".to_string()),
+                ("session".to_string(), "repo|feature-test".to_string()),
             ]),
         );
 
         assert!(matches!(
             state.status,
             Status::Busy(ref message)
-                if message == "Deleting session `feature-test` and worktree `/tmp/repo/.worktrees/feature`..."
+                if message == "Deleting session `repo|feature-test` and worktree `/tmp/repo/.worktrees/feature`..."
         ));
         assert!(state.live_session_names.is_empty());
     }

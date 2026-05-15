@@ -57,7 +57,7 @@ fn render_ready(
     let session_format = if let Some(prefix) = &config.session_prefix {
         format!("{}-<repo>-<branch>-<hash>", prefix)
     } else {
-        format!("{}-<branch>-<hash>", repo_name.unwrap().as_str())
+        format!("{}|<worktree>", repo_name.unwrap().as_str())
     };
 
     println!();
