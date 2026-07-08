@@ -45,6 +45,7 @@ impl State {
             }
             BareKey::Char('d') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 self.delete_selected_item();
+                self.fetch_zoxide_directories();
                 true
             }
             BareKey::Char('h') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
