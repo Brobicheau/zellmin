@@ -24,6 +24,7 @@ impl State {
             EventType::PermissionRequestResult,
             EventType::RunCommandResult,
             EventType::Key,
+            EventType::TabUpdate,
         ]);
         request_permission(&[
             PermissionType::RunCommands,
@@ -43,6 +44,19 @@ impl State {
                 true
             }
             Event::Key(key) => self.handle_key(key),
+            Event::TabUpdate(tabs) => {
+                match tabs.iter().find(|t| t.active) {
+                    Some(active_tab) => {
+                        if !active_tab.are_floating_panes_visible {
+                            hide_self();
+                        }
+                    }
+                    None => {
+                        eprintln!("No Active Tab");
+                    }
+                }
+                false
+            }
             _ => false,
         }
     }
