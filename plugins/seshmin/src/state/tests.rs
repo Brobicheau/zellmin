@@ -1,9 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::display::matching_directory;
-use super::events::parse_zellij_sessions;
 use super::*;
 use crate::session::SessionItem;
 use crate::storage::test_treemin_registry;
@@ -79,7 +78,7 @@ fn delete_refuses_current_session() {
         directory: "/tmp/repo".to_string(),
         session_name: "repo".to_string(),
     }];
-    state.session_manager.merge_sessions(vec![SessionInfo {
+    state.session_manager.update_sessions(vec![SessionInfo {
         name: "repo".to_string(),
         is_current_session: true,
         ..SessionInfo::default()
@@ -102,7 +101,7 @@ fn current_session_is_shown_but_not_selected() {
         directory: "/tmp/repo".to_string(),
         session_name: "repo".to_string(),
     }];
-    state.session_manager.merge_sessions(vec![
+    state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "repo".to_string(),
             is_current_session: true,
@@ -149,7 +148,7 @@ fn current_session_is_shown_but_not_selected() {
 #[test]
 fn current_session_only_list_has_no_selectable_item() {
     let mut state = State::default();
-    state.session_manager.merge_sessions(vec![SessionInfo {
+    state.session_manager.update_sessions(vec![SessionInfo {
         name: "repo".to_string(),
         is_current_session: true,
         ..SessionInfo::default()
@@ -169,84 +168,10 @@ fn current_session_only_list_has_no_selectable_item() {
 }
 
 #[test]
-fn session_update_moves_selection_back_to_live_sessions() {
-    let mut state = State::default();
-    state.directories = (0..20)
-        .map(|index| ZoxideDirectory {
-            ranking: index as f64,
-            directory: format!("/tmp/dir-{index}"),
-            session_name: format!("dir-{index}"),
-        })
-        .collect();
-    state.selected_index = 12;
-
-    state.update_plugin(Event::SessionUpdate(
-        vec![SessionInfo {
-            name: "live-session".to_string(),
-            ..SessionInfo::default()
-        }],
-        Vec::new(),
-    ));
-
-    assert_eq!(state.selected_index(), 0);
-    assert!(matches!(
-        state.selected_item(),
-        Some(SessionItem::ExistingSession { name, .. }) if name == "live-session"
-    ));
-}
-
-#[test]
-fn parses_zellij_session_list_output() {
-    assert_eq!(
-        parse_zellij_sessions(
-            "tremendous-horse [Created 2days ago] \n\
-             zellmin [Created 12m ago] (current)\n\
-             malformed\n",
-        ),
-        vec![
-            ("tremendous-horse".to_string(), false),
-            ("zellmin".to_string(), true),
-        ]
-    );
-}
-
-#[test]
-fn zellij_session_command_replaces_incomplete_session_update() {
-    let mut state = State::default();
-    state.update_plugin(Event::SessionUpdate(
-        vec![SessionInfo {
-            name: "zellmin".to_string(),
-            is_current_session: true,
-            ..SessionInfo::default()
-        }],
-        Vec::new(),
-    ));
-
-    state.update_plugin(Event::RunCommandResult(
-        Some(0),
-        b"tremendous-horse [Created 2days ago] \nmelt [Created 1day ago] \nzellmin [Created 12m ago] (current)\n".to_vec(),
-        Vec::new(),
-        BTreeMap::from([("zellij_sessions".to_string(), "true".to_string())]),
-    ));
-
-    let items = state.display_items();
-
-    assert_eq!(state.session_count(), 3);
-    assert!(items.iter().any(|item| matches!(
-        item,
-        SessionItem::ExistingSession { name, .. } if name == "tremendous-horse"
-    )));
-    assert!(items.iter().any(|item| matches!(
-        item,
-        SessionItem::ExistingSession { name, is_current: true, .. } if name == "zellmin"
-    )));
-}
-
-#[test]
 fn shows_sessions_even_without_matching_directory() {
     let mut state = State::default();
     state.config.show_resurrectable_sessions = true;
-    state.session_manager.merge_sessions(vec![SessionInfo {
+    state.session_manager.update_sessions(vec![SessionInfo {
         name: "loose-live".to_string(),
         is_current_session: false,
         ..SessionInfo::default()
@@ -284,7 +209,7 @@ fn active_sessions_sort_before_other_items() {
             session_name: "other".to_string(),
         },
     ];
-    state.session_manager.merge_sessions(vec![
+    state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "loose-live".to_string(),
             ..SessionInfo::default()
@@ -384,7 +309,7 @@ fn zoxide_only_filter_keeps_only_directory_backed_items() {
         directory: "/tmp/repo".to_string(),
         session_name: "repo".to_string(),
     }];
-    state.session_manager.merge_sessions(vec![
+    state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "repo".to_string(),
             ..SessionInfo::default()
@@ -415,7 +340,7 @@ fn non_zoxide_filter_hides_directory_backed_items() {
         directory: "/tmp/repo".to_string(),
         session_name: "repo".to_string(),
     }];
-    state.session_manager.merge_sessions(vec![
+    state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "repo".to_string(),
             ..SessionInfo::default()
@@ -452,7 +377,7 @@ fn filters_out_treemin_managed_sessions() {
 
     let mut state = State::default();
     state.config.show_resurrectable_sessions = true;
-    state.session_manager.merge_sessions(vec![
+    state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "repo-feature-a".to_string(),
             ..SessionInfo::default()

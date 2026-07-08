@@ -66,7 +66,6 @@ impl ZellijPlugin for State {
         subscribe(&[
             EventType::PermissionRequestResult,
             EventType::RunCommandResult,
-            EventType::SessionUpdate,
             EventType::Key,
         ]);
         request_permission(&[
@@ -82,6 +81,7 @@ impl ZellijPlugin for State {
             Event::PermissionRequestResult(status) => {
                 self.permissions_granted = matches!(status, PermissionStatus::Granted);
                 if self.permissions_granted {
+                    self.refresh_session_list();
                     self.discover_repo();
                 } else {
                     self.status = Status::Error(
@@ -93,14 +93,6 @@ impl ZellijPlugin for State {
             }
             Event::RunCommandResult(exit_code, stdout, stderr, context) => {
                 self.handle_run_command_result(exit_code, stdout, stderr, context);
-                true
-            }
-            Event::SessionUpdate(live_sessions, _) => {
-                self.live_session_names = live_sessions
-                    .into_iter()
-                    .map(|session| session.name)
-                    .collect();
-                self.rebuild_worktree_sessions();
                 true
             }
             Event::Key(key) => self.handle_key(key),
@@ -513,6 +505,17 @@ impl State {
     fn discover_repo(&mut self) {
         self.status = Status::Busy("Discovering repository root...".to_string());
         git::discover_repo();
+    }
+
+    fn refresh_session_list(&mut self) {
+        if let Ok(snapshot) = get_session_list() {
+            self.live_session_names = snapshot
+                .live_sessions
+                .into_iter()
+                .map(|session| session.name)
+                .collect();
+            self.rebuild_worktree_sessions();
+        }
     }
 
     fn load_repo_config(&mut self, repo_root: PathBuf) {

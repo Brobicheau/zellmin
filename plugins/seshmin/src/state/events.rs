@@ -9,7 +9,6 @@ use crate::ui;
 use crate::zoxide;
 
 const ZOXIDE_QUERY_CONTEXT: &str = "zoxide_query";
-const ZELLIJ_SESSIONS_CONTEXT: &str = "zellij_sessions";
 
 impl State {
     pub fn load_plugin(&mut self, configuration: BTreeMap<String, String>) {
@@ -25,7 +24,6 @@ impl State {
         subscribe(&[
             EventType::PermissionRequestResult,
             EventType::RunCommandResult,
-            EventType::SessionUpdate,
             EventType::Key,
         ]);
         request_permission(&[
@@ -43,18 +41,6 @@ impl State {
             }
             Event::RunCommandResult(exit_code, stdout, stderr, context) => {
                 self.handle_run_command_result(exit_code, stdout, stderr, context);
-                true
-            }
-            Event::SessionUpdate(sessions, resurrectable_sessions) => {
-                self.session_manager.merge_sessions(sessions);
-                self.session_manager
-                    .update_resurrectable_sessions(resurrectable_sessions);
-                self.filter_treemin_sessions();
-                self.sessions_loaded = true;
-                self.selected_index = 0;
-                self.refresh_search();
-                self.clamp_selection();
-                self.sync_status();
                 true
             }
             Event::Key(key) => self.handle_key(key),
@@ -90,8 +76,6 @@ impl State {
     ) {
         if context.contains_key(ZOXIDE_QUERY_CONTEXT) {
             self.handle_zoxide_result(exit_code, stdout, stderr);
-        } else if context.contains_key(ZELLIJ_SESSIONS_CONTEXT) {
-            self.handle_zellij_sessions_result(exit_code, stdout, stderr);
         }
     }
 
@@ -102,11 +86,9 @@ impl State {
             self.directories_loaded = true;
             self.refresh_search();
             self.clamp_selection();
-            self.sync_status();
-            run_command(
-                &["zellij", "list-sessions", "--no-formatting"],
-                BTreeMap::from([(ZELLIJ_SESSIONS_CONTEXT.to_string(), "true".to_string())]),
-            );
+            if self.refresh_session_list() {
+                self.sync_status();
+            }
         } else {
             let stderr = String::from_utf8_lossy(&stderr).trim().to_string();
             let detail = if stderr.is_empty() {
@@ -118,30 +100,23 @@ impl State {
         }
     }
 
-    fn handle_zellij_sessions_result(
-        &mut self,
-        exit_code: Option<i32>,
-        stdout: Vec<u8>,
-        stderr: Vec<u8>,
-    ) {
-        if exit_code == Some(0) {
-            let output = String::from_utf8_lossy(&stdout);
-            self.session_manager
-                .update_sessions_from_cli(parse_zellij_sessions(&output));
-            self.filter_treemin_sessions();
-            self.sessions_loaded = true;
-            self.selected_index = 0;
-            self.refresh_search();
-            self.clamp_selection();
-            self.sync_status();
-        } else {
-            let stderr = String::from_utf8_lossy(&stderr).trim().to_string();
-            let detail = if stderr.is_empty() {
-                "Is zellij on PATH?".to_string()
-            } else {
-                stderr
-            };
-            self.status = Status::Error(format!("Failed to list zellij sessions. {detail}"));
+    fn refresh_session_list(&mut self) -> bool {
+        match get_session_list() {
+            Ok(snapshot) => {
+                self.session_manager.update_sessions(snapshot.live_sessions);
+                self.session_manager
+                    .update_resurrectable_sessions(snapshot.resurrectable_sessions);
+                self.filter_treemin_sessions();
+                self.sessions_loaded = true;
+                self.selected_index = 0;
+                self.refresh_search();
+                self.clamp_selection();
+                true
+            }
+            Err(error) => {
+                self.status = Status::Error(format!("Failed to list zellij sessions. {error}"));
+                false
+            }
         }
     }
 
@@ -188,19 +163,4 @@ impl State {
         self.session_manager
             .retain_resurrectable_sessions(|(name, _)| !managed_sessions.contains(name));
     }
-}
-
-pub(super) fn parse_zellij_sessions(output: &str) -> Vec<(String, bool)> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let (name, details) = line.trim().split_once(" [Created ")?;
-            let name = name.trim();
-            if name.is_empty() {
-                return None;
-            }
-
-            Some((name.to_string(), details.contains("(current)")))
-        })
-        .collect()
 }

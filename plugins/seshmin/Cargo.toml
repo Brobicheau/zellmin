@@ -12,6 +12,6 @@ bench = false
 host-storage = { path = "../../lib/host-storage" }
 plugin-ui = { path = "../../lib/ui" }
 session-registry = { path = "../../lib/session-registry" }
-zellij-tile = "=0.44.1"
+zellij-tile = "=0.44.3"
 fuzzy-matcher = "0.3.7"
 humantime = "2.2.0"
