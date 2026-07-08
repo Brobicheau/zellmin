@@ -58,6 +58,7 @@
             packages = with pkgs; [
               rustToolchain
               openssl
+              curl
               pkg-config
               cargo-deny
               cargo-edit

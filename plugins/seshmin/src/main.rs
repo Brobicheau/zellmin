@@ -12,6 +12,10 @@ use zellij_tile::prelude::*;
 
 register_plugin!(State);
 
+#[cfg(test)]
+#[no_mangle]
+extern "C" fn host_run_plugin_command() {}
+
 impl ZellijPlugin for State {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
         State::load_plugin(self, configuration);

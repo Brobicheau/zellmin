@@ -48,13 +48,15 @@ fn assign_session_names(directories: &mut [ZoxideDirectory], config: &Config) {
         .iter()
         .map(|directory| normalize_path(&directory.directory, &config.base_paths))
         .collect::<Vec<_>>();
+    let mut assigned_names = Vec::new();
 
     for (directory, normalized_path) in directories.iter_mut().zip(normalized_paths.iter()) {
-        directory.session_name = generate_session_name(normalized_path, &normalized_paths, config);
+        directory.session_name = generate_session_name(normalized_path, &assigned_names, config);
+        assigned_names.push(directory.session_name.clone());
     }
 }
 
-fn generate_session_name(path: &str, all_paths: &[String], config: &Config) -> String {
+fn generate_session_name(path: &str, assigned_names: &[String], config: &Config) -> String {
     let segments = path_segments(path);
     if segments.is_empty() {
         return "root".to_string();
@@ -62,30 +64,18 @@ fn generate_session_name(path: &str, all_paths: &[String], config: &Config) -> S
 
     let basename = segments.last().copied().unwrap_or("root");
     let separator = &config.session_separator;
-    let conflicting_paths = all_paths
-        .iter()
-        .filter(|other_path| {
-            let other_segments = path_segments(other_path);
-            other_segments.last().copied() == Some(basename)
-        })
-        .collect::<Vec<_>>();
-
-    if conflicting_paths.len() <= 1 {
-        return truncate_candidate(basename.to_string(), separator);
+    let basename_candidate = truncate_candidate(basename.to_string(), separator);
+    if !assigned_names.contains(&basename_candidate) {
+        return basename_candidate;
     }
 
     for context_len in 2..=segments.len() {
-        let candidate = segments[segments.len() - context_len..].join(separator);
-        if conflicting_paths.iter().all(|other_path| {
-            if other_path.as_str() == path {
-                return true;
-            }
-
-            let other_segments = path_segments(other_path);
-            other_segments.len() < context_len
-                || other_segments[other_segments.len() - context_len..].join(separator) != candidate
-        }) {
-            return truncate_candidate(candidate, separator);
+        let candidate = truncate_candidate(
+            segments[segments.len() - context_len..].join(separator),
+            separator,
+        );
+        if !assigned_names.contains(&candidate) {
+            return candidate;
         }
     }
 
