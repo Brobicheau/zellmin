@@ -88,7 +88,7 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
         panel.print_help("Ctrl+F", "cycle result filter");
         panel.print_help("Ctrl+D", "delete selected session");
         panel.print_help("Ctrl+H", "toggle help");
-        panel.print_help("Ctrl+R", "refresh zoxide directories");
+        panel.print_help("Ctrl+R", "refresh sessions and directories");
         panel.print_help("Esc", "clear search or close");
         panel.print_bottom();
     }

@@ -30,19 +30,13 @@ pub fn next_selectable_index<T>(
         return None;
     }
 
-    for step in 1..=items.len() {
-        let index = if forward {
-            (current_index + step) % items.len()
-        } else {
-            (current_index + items.len() - step) % items.len()
-        };
-
-        if is_selectable(&items[index]) {
-            return Some(index);
-        }
+    if forward {
+        ((current_index + 1)..items.len()).find(|index| is_selectable(&items[*index]))
+    } else {
+        (0..current_index)
+            .rev()
+            .find(|index| is_selectable(&items[*index]))
     }
-
-    None
 }
 
 impl SessionItem {
@@ -117,5 +111,44 @@ impl SessionItem {
             Self::ResurrectableSession { name, .. } => name,
             Self::Directory { path, .. } => path,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_selectable_index;
+
+    #[test]
+    fn next_selectable_index_does_not_wrap_forward() {
+        let items = [true, true, true];
+
+        assert_eq!(
+            next_selectable_index(&items, 2, true, |is_selectable| *is_selectable),
+            None
+        );
+    }
+
+    #[test]
+    fn next_selectable_index_does_not_wrap_backward() {
+        let items = [true, true, true];
+
+        assert_eq!(
+            next_selectable_index(&items, 0, false, |is_selectable| *is_selectable),
+            None
+        );
+    }
+
+    #[test]
+    fn next_selectable_index_skips_unselectable_items() {
+        let items = [true, false, true];
+
+        assert_eq!(
+            next_selectable_index(&items, 0, true, |is_selectable| *is_selectable),
+            Some(2)
+        );
+        assert_eq!(
+            next_selectable_index(&items, 2, false, |is_selectable| *is_selectable),
+            Some(0)
+        );
     }
 }

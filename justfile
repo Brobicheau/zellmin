@@ -42,7 +42,7 @@ clippy:
 # Run host-target Rust tests
 [group('Quality')]
 test:
-    cargo test --workspace
+    LD_LIBRARY_PATH="$(nix build --no-link --print-out-paths nixpkgs#curl.out)/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" cargo test --workspace
 
 [group('Quality')]
 debug-logs:

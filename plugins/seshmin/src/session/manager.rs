@@ -9,8 +9,37 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    pub fn update_sessions(&mut self, sessions: Vec<SessionInfo>) {
-        self.sessions = sessions;
+    pub fn merge_sessions(&mut self, sessions: Vec<SessionInfo>) {
+        for session in sessions {
+            if let Some(existing_session) = self
+                .sessions
+                .iter_mut()
+                .find(|existing_session| existing_session.name == session.name)
+            {
+                *existing_session = session;
+            } else {
+                self.sessions.push(session);
+            }
+        }
+    }
+
+    pub fn update_sessions_from_cli(&mut self, sessions: Vec<(String, bool)>) {
+        self.sessions = sessions
+            .into_iter()
+            .map(|(name, is_current_session)| {
+                let mut session = self
+                    .sessions
+                    .iter()
+                    .find(|session| session.name == name)
+                    .cloned()
+                    .unwrap_or_else(|| SessionInfo {
+                        name,
+                        ..SessionInfo::default()
+                    });
+                session.is_current_session = is_current_session;
+                session
+            })
+            .collect();
     }
 
     pub fn retain_sessions<F>(&mut self, mut predicate: F)

@@ -9,6 +9,7 @@ use crate::ui;
 use crate::zoxide;
 
 const ZOXIDE_QUERY_CONTEXT: &str = "zoxide_query";
+const ZELLIJ_SESSIONS_CONTEXT: &str = "zellij_sessions";
 
 impl State {
     pub fn load_plugin(&mut self, configuration: BTreeMap<String, String>) {
@@ -45,11 +46,12 @@ impl State {
                 true
             }
             Event::SessionUpdate(sessions, resurrectable_sessions) => {
-                self.session_manager.update_sessions(sessions);
+                self.session_manager.merge_sessions(sessions);
                 self.session_manager
                     .update_resurrectable_sessions(resurrectable_sessions);
                 self.filter_treemin_sessions();
                 self.sessions_loaded = true;
+                self.selected_index = 0;
                 self.refresh_search();
                 self.clamp_selection();
                 self.sync_status();
@@ -86,10 +88,14 @@ impl State {
         stderr: Vec<u8>,
         context: BTreeMap<String, String>,
     ) {
-        if !context.contains_key(ZOXIDE_QUERY_CONTEXT) {
-            return;
+        if context.contains_key(ZOXIDE_QUERY_CONTEXT) {
+            self.handle_zoxide_result(exit_code, stdout, stderr);
+        } else if context.contains_key(ZELLIJ_SESSIONS_CONTEXT) {
+            self.handle_zellij_sessions_result(exit_code, stdout, stderr);
         }
+    }
 
+    fn handle_zoxide_result(&mut self, exit_code: Option<i32>, stdout: Vec<u8>, stderr: Vec<u8>) {
         if exit_code == Some(0) {
             let output = String::from_utf8_lossy(&stdout);
             self.directories = zoxide::parse_directories(&output, &self.config);
@@ -97,6 +103,10 @@ impl State {
             self.refresh_search();
             self.clamp_selection();
             self.sync_status();
+            run_command(
+                &["zellij", "list-sessions", "--no-formatting"],
+                BTreeMap::from([(ZELLIJ_SESSIONS_CONTEXT.to_string(), "true".to_string())]),
+            );
         } else {
             let stderr = String::from_utf8_lossy(&stderr).trim().to_string();
             let detail = if stderr.is_empty() {
@@ -105,6 +115,33 @@ impl State {
                 stderr
             };
             self.status = Status::Error(format!("Failed to run zoxide. {detail}"));
+        }
+    }
+
+    fn handle_zellij_sessions_result(
+        &mut self,
+        exit_code: Option<i32>,
+        stdout: Vec<u8>,
+        stderr: Vec<u8>,
+    ) {
+        if exit_code == Some(0) {
+            let output = String::from_utf8_lossy(&stdout);
+            self.session_manager
+                .update_sessions_from_cli(parse_zellij_sessions(&output));
+            self.filter_treemin_sessions();
+            self.sessions_loaded = true;
+            self.selected_index = 0;
+            self.refresh_search();
+            self.clamp_selection();
+            self.sync_status();
+        } else {
+            let stderr = String::from_utf8_lossy(&stderr).trim().to_string();
+            let detail = if stderr.is_empty() {
+                "Is zellij on PATH?".to_string()
+            } else {
+                stderr
+            };
+            self.status = Status::Error(format!("Failed to list zellij sessions. {detail}"));
         }
     }
 
@@ -151,4 +188,19 @@ impl State {
         self.session_manager
             .retain_resurrectable_sessions(|(name, _)| !managed_sessions.contains(name));
     }
+}
+
+pub(super) fn parse_zellij_sessions(output: &str) -> Vec<(String, bool)> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let (name, details) = line.trim().split_once(" [Created ")?;
+            let name = name.trim();
+            if name.is_empty() {
+                return None;
+            }
+
+            Some((name.to_string(), details.contains("(current)")))
+        })
+        .collect()
 }

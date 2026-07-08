@@ -77,8 +77,9 @@ impl State {
                 false
             }
             BareKey::Char('r') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                self.sessions_loaded = false;
                 self.directories_loaded = false;
-                self.status = Status::Busy("Refreshing zoxide directories...".to_string());
+                self.status = Status::Busy("Refreshing sessions and directories...".to_string());
                 self.fetch_zoxide_directories();
                 true
             }
