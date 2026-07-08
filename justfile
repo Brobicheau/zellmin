@@ -8,12 +8,6 @@ seshmin_release_plugin_path := `printf "target/%s/release/seshmin.wasm" "{{wasm_
 default:
     @just --list
 
-install-wasm-target:
-    rustup target add {{wasm_target}}
-
-install-wasm-target-legacy:
-    rustup target add wasm32-wasi
-
 check:
     cargo check --target {{wasm_target}} --workspace
 
