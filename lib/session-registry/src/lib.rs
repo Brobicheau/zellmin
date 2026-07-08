@@ -73,22 +73,26 @@ fn parse_session_names(contents: &str) -> BTreeSet<String> {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
 
+    static TEST_ROOT_COUNTER: AtomicU64 = AtomicU64::new(0);
+
     fn registry() -> TreeminSessionRegistry {
         let unique_root = std::env::temp_dir().join(format!(
-            "treemin-session-registry-{}",
+            "treemin-session-registry-{}-{}-{}",
+            std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            TEST_ROOT_COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
         let _ = fs::remove_dir_all(&unique_root);
         TreeminSessionRegistry::with_storage(
-            HostStorage::with_host_root(PathBuf::from(unique_root), "treemin-test").unwrap(),
+            HostStorage::with_host_root(unique_root, "treemin-test").unwrap(),
         )
     }
 

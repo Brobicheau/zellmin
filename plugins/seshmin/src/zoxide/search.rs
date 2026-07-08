@@ -1,4 +1,4 @@
-use crate::session::SessionItem;
+use crate::session::{next_selectable_index, SessionItem};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 
@@ -101,7 +101,10 @@ impl SearchEngine {
             return;
         };
 
-        self.selected_index = self.next_selectable_index(selected_index, false);
+        self.selected_index =
+            next_selectable_index(&self.results, selected_index, false, |result| {
+                result.item.is_selectable()
+            });
     }
 
     pub fn move_down(&mut self) {
@@ -109,33 +112,16 @@ impl SearchEngine {
             return;
         };
 
-        self.selected_index = self.next_selectable_index(selected_index, true);
+        self.selected_index =
+            next_selectable_index(&self.results, selected_index, true, |result| {
+                result.item.is_selectable()
+            });
     }
 
     fn first_selectable_index(&self) -> Option<usize> {
         self.results
             .iter()
             .position(|result| result.item.is_selectable())
-    }
-
-    fn next_selectable_index(&self, current_index: usize, forward: bool) -> Option<usize> {
-        if self.results.is_empty() {
-            return None;
-        }
-
-        for step in 1..=self.results.len() {
-            let index = if forward {
-                (current_index + step) % self.results.len()
-            } else {
-                (current_index + self.results.len() - step) % self.results.len()
-            };
-
-            if self.results[index].item.is_selectable() {
-                return Some(index);
-            }
-        }
-
-        None
     }
 }
 

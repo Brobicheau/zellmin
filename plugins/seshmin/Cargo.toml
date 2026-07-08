@@ -3,6 +3,11 @@ name = "seshmin"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "seshmin"
+path = "src/main.rs"
+bench = false
+
 [dependencies]
 host-storage = { path = "../../lib/host-storage" }
 plugin-ui = { path = "../../lib/ui" }

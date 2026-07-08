@@ -399,9 +399,7 @@ impl State {
                         &String::from_utf8_lossy(&stdout),
                         self.current_worktree_root.as_deref(),
                     );
-                    self.rebuild_worktree_sessions_with_selection(
-                        previous_selection.as_ref().map(|value| value.as_str()),
-                    );
+                    self.rebuild_worktree_sessions_with_selection(previous_selection.as_deref());
                     self.status = Status::Ready;
                 } else {
                     self.status = Status::Error(commands::command_error(
@@ -453,7 +451,7 @@ impl State {
                         });
                         let previous_selection = self.selected_session_key();
                         self.rebuild_worktree_sessions_with_selection(
-                            previous_selection.as_ref().map(|value| value.as_str()),
+                            previous_selection.as_deref(),
                         );
                         self.status = Status::Ready;
                     }
@@ -470,9 +468,7 @@ impl State {
                     self.known_worktrees
                         .retain(|worktree| worktree.path != path);
                     let previous_selection = self.selected_session_key();
-                    self.rebuild_worktree_sessions_with_selection(
-                        previous_selection.as_ref().map(|value| value.as_str()),
-                    );
+                    self.rebuild_worktree_sessions_with_selection(previous_selection.as_deref());
                     self.status = Status::Ready;
                     self.pending_delete = Some(PendingDelete {
                         session_name: None,
@@ -766,9 +762,7 @@ impl State {
 
     fn rebuild_worktree_sessions(&mut self) {
         let previous_selection = self.selected_session_key();
-        self.rebuild_worktree_sessions_with_selection(
-            previous_selection.as_ref().map(|value| value.as_str()),
-        );
+        self.rebuild_worktree_sessions_with_selection(previous_selection.as_deref());
     }
 
     fn rebuild_worktree_sessions_with_selection(&mut self, previous_selection: Option<&str>) {

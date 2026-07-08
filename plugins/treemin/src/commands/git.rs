@@ -166,9 +166,7 @@ pub fn parse_worktree_locations(
     let repo_root = current_repo_root.map(shared_repo_root);
     output
         .split("\n\n")
-        .filter_map(|block| {
-            parse_worktree_location_block(block, current_repo_root, repo_root.as_deref())
-        })
+        .filter_map(|block| parse_worktree_location_block(block, current_repo_root, repo_root))
         .collect()
 }
 

@@ -504,8 +504,10 @@ mod tests {
 
     #[test]
     fn long_session_names_are_not_truncated_when_disabled() {
-        let mut config = Config::default();
-        config.truncate_session_names = false;
+        let config = Config {
+            truncate_session_names: false,
+            ..Config::default()
+        };
 
         let session = session_name(
             Some("repo"),
@@ -525,8 +527,10 @@ mod tests {
 
     #[test]
     fn collision_suffixes_work_without_truncation() {
-        let mut config = Config::default();
-        config.truncate_session_names = false;
+        let config = Config {
+            truncate_session_names: false,
+            ..Config::default()
+        };
 
         let branches = vec![
             "feature/with-a-very-long-name".to_string(),
@@ -564,7 +568,7 @@ mod tests {
             Some("repo"),
             &long_branch,
             &config,
-            &[long_branch.clone()],
+            std::slice::from_ref(&long_branch),
             false,
         );
 

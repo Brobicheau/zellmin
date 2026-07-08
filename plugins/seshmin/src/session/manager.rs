@@ -61,15 +61,34 @@ impl SessionManager {
         separator: &str,
         max_len: usize,
     ) -> String {
-        if !self.name_exists(base_name) {
-            return truncate_to_length(base_name, max_len);
+        let existing_incremented_prefix = self.existing_incremented_prefix(base_name, separator);
+        if base_name.len() <= max_len
+            && !self.name_exists(base_name)
+            && existing_incremented_prefix.is_none()
+        {
+            return base_name.to_string();
         }
+
+        let increment_base = if let Some(prefix) = existing_incremented_prefix {
+            prefix
+        } else if base_name.len() > max_len {
+            let truncated_name = truncate_to_length(base_name, max_len);
+            if !self.name_exists(&truncated_name)
+                && !self.has_incremented_name(base_name, separator, max_len)
+            {
+                return truncated_name;
+            } else {
+                truncated_name
+            }
+        } else {
+            base_name.to_string()
+        };
 
         for counter in 2..=1000 {
             let suffix = format!("{separator}{counter}");
             let candidate = format!(
                 "{}{}",
-                truncate_to_length(base_name, max_len.saturating_sub(suffix.len())),
+                truncate_to_length(&increment_base, max_len.saturating_sub(suffix.len())),
                 suffix
             );
             if !self.name_exists(&candidate) {
@@ -113,10 +132,48 @@ impl SessionManager {
                 .iter()
                 .any(|(name, _)| name == candidate)
     }
+
+    fn has_incremented_name(&self, base_name: &str, separator: &str, max_len: usize) -> bool {
+        for counter in 2..=1000 {
+            let suffix = format!("{separator}{counter}");
+            let candidate = format!(
+                "{}{}",
+                truncate_to_length(base_name, max_len.saturating_sub(suffix.len())),
+                suffix
+            );
+            if self.name_exists(&candidate) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn existing_incremented_prefix(&self, base_name: &str, separator: &str) -> Option<String> {
+        self.sessions
+            .iter()
+            .map(|session| session.name.as_str())
+            .chain(
+                self.resurrectable_sessions
+                    .iter()
+                    .map(|(name, _)| name.as_str()),
+            )
+            .filter_map(|name| incremented_prefix(name, separator))
+            .filter(|prefix| base_name.starts_with(prefix))
+            .max_by_key(|prefix| prefix.len())
+            .map(str::to_string)
+    }
 }
 
 fn truncate_to_length(input: &str, max_len: usize) -> String {
     input.chars().take(max_len).collect()
+}
+
+fn incremented_prefix<'a>(name: &'a str, separator: &str) -> Option<&'a str> {
+    let (prefix, suffix) = name.rsplit_once(separator)?;
+    if suffix.is_empty() || !suffix.chars().all(|character| character.is_ascii_digit()) {
+        return None;
+    }
+    Some(prefix)
 }
 
 #[cfg(test)]

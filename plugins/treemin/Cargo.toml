@@ -3,6 +3,12 @@ name = "treemin"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "treemin"
+path = "src/main.rs"
+test = false
+bench = false
+
 [dependencies]
 host-storage = { path = "../../lib/host-storage" }
 plugin-ui = { path = "../../lib/ui" }
