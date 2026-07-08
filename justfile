@@ -26,8 +26,13 @@ release:
 fmt:
     cargo fmt
 
+fmt-check:
+    cargo fmt --all -- --check
+
 clippy:
     cargo clippy --target {{wasm_target}} --workspace -- -D warnings
+
+ci: check test build
 
 test:
     cargo test --workspace

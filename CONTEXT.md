@@ -159,6 +159,18 @@ The latest work updated `plugins/treemin/src/state.rs` to use the new branch-onl
 - `plugins/seshmin/src/zoxide/mod.rs`: zoxide parsing and session name generation
 - `plugins/seshmin/src/zoxide/search.rs`: search ordering and current-session handling
 
+## CI Pipeline
+
+- GitHub Actions workflow lives at `.github/workflows/ci.yml`.
+- It runs on pushes and on pull requests.
+- The workflow installs stable Rust with `wasm32-wasip1`, `rustfmt`, `clippy`, and `just`.
+- The workflow entry point is `just ci`.
+- `just ci` runs:
+  - `just check`
+  - `just test`
+  - `just build`
+- `just fmt-check` and `just clippy` are available separately for stricter cleanup verification.
+
 ## Known Environment Limitation
 
 - Local Rust verification is currently blocked in this environment because `cargo` is unavailable.
