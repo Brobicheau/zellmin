@@ -13,7 +13,9 @@ pub fn parse_directories(output: &str, config: &Config) -> Vec<ZoxideDirectory> 
         .lines()
         .filter_map(|line| parse_directory(line, config))
         .filter(|directory| is_searched_directory(&directory.directory, &config.search_directories))
-        .filter(|directory| !is_ignored_directory(&directory.directory, &config.ignored_directories))
+        .filter(|directory| {
+            !is_ignored_directory(&directory.directory, &config.ignored_directories)
+        })
         .collect::<Vec<_>>();
 
     assign_session_names(&mut directories, config);

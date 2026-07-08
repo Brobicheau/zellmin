@@ -22,7 +22,13 @@ pub enum SessionItem {
 
 impl SessionItem {
     pub fn is_selectable(&self) -> bool {
-        !matches!(self, Self::ExistingSession { is_current: true, .. })
+        !matches!(
+            self,
+            Self::ExistingSession {
+                is_current: true,
+                ..
+            }
+        )
     }
 
     pub fn is_zoxide_item(&self) -> bool {
@@ -42,8 +48,7 @@ impl SessionItem {
     pub fn sort_group(&self) -> u8 {
         match self {
             Self::ExistingSession {
-                is_current: true,
-                ..
+                is_current: true, ..
             } => 0,
             Self::ExistingSession {
                 is_directory_session,

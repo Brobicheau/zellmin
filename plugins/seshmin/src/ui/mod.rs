@@ -100,7 +100,11 @@ fn render_new_session(state: &State, rows: usize, panel: BoxPanel) {
         .as_ref()
         .expect("draft session must exist");
     let layout_count = draft.layout_count() + 1;
-    let help_lines = if state.show_help { NEW_SESSION_HELP_LINES } else { 0 };
+    let help_lines = if state.show_help {
+        NEW_SESSION_HELP_LINES
+    } else {
+        0
+    };
     let visible_layouts = visible_layout_slice(
         draft,
         rows.saturating_sub(NEW_SESSION_CHROME_LINES + help_lines),

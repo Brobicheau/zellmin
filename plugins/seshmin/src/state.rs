@@ -182,11 +182,8 @@ impl State {
 
         if self.config.show_resurrectable_sessions {
             for (name, duration) in self.session_manager.resurrectable_sessions() {
-                let directory = matching_directory(
-                    name,
-                    &self.directories,
-                    &self.config.session_separator,
-                );
+                let directory =
+                    matching_directory(name, &self.directories, &self.config.session_separator);
                 items.push(SessionItem::ResurrectableSession {
                     name: name.clone(),
                     duration_text: format!("created {} ago", format_duration(*duration)),
@@ -424,20 +421,16 @@ impl State {
                 hide_self();
             }
             SessionItem::Directory {
-                path,
-                session_name,
-                ..
+                path, session_name, ..
             } => {
                 if self.config.default_layout.is_some() {
                     self.create_directory_session(path, session_name, true);
                 } else {
-                    let next_name = self
-                        .session_manager
-                        .generate_incremented_name(
-                            &session_name,
-                            &self.config.session_separator,
-                            zoxide::MAX_SESSION_NAME_LEN,
-                        );
+                    let next_name = self.session_manager.generate_incremented_name(
+                        &session_name,
+                        &self.config.session_separator,
+                        zoxide::MAX_SESSION_NAME_LEN,
+                    );
                     self.draft_session = Some(DraftSession {
                         directory: path,
                         session_name: next_name,
@@ -464,9 +457,7 @@ impl State {
                 hide_self();
             }
             SessionItem::Directory {
-                path,
-                session_name,
-                ..
+                path, session_name, ..
             } => {
                 self.create_directory_session(path, session_name, true);
             }
@@ -479,21 +470,20 @@ impl State {
         session_name: String,
         use_default_layout: bool,
     ) {
-        if let Some(resurrectable_session_name) =
-            self.session_manager.resurrectable_session_name(&session_name)
+        if let Some(resurrectable_session_name) = self
+            .session_manager
+            .resurrectable_session_name(&session_name)
         {
             switch_session(Some(resurrectable_session_name));
             hide_self();
             return;
         }
 
-        let next_name = self
-            .session_manager
-            .generate_incremented_name(
-                &session_name,
-                &self.config.session_separator,
-                zoxide::MAX_SESSION_NAME_LEN,
-            );
+        let next_name = self.session_manager.generate_incremented_name(
+            &session_name,
+            &self.config.session_separator,
+            zoxide::MAX_SESSION_NAME_LEN,
+        );
         if let Err(message) = validate_session_name(&next_name) {
             self.status = Status::Error(message);
             return;
@@ -534,8 +524,7 @@ impl State {
                 );
             }
             SessionItem::ExistingSession {
-                is_current: true,
-                ..
+                is_current: true, ..
             } => {
                 self.status = Status::Error(
                     "Cannot delete the current session from inside itself.".to_string(),
@@ -564,9 +553,8 @@ impl State {
             .current_session_name()
             .is_some_and(|name| name == draft.session_name)
         {
-            self.status = Status::Error(
-                "Cannot create a session with the current session name.".to_string(),
-            );
+            self.status =
+                Status::Error("Cannot create a session with the current session name.".to_string());
             return;
         }
 
@@ -634,9 +622,8 @@ impl State {
 
         self.session_manager
             .retain_sessions(|session| !managed_sessions.contains(&session.name));
-        self.session_manager.retain_resurrectable_sessions(|(name, _)| {
-            !managed_sessions.contains(name)
-        });
+        self.session_manager
+            .retain_resurrectable_sessions(|(name, _)| !managed_sessions.contains(name));
     }
 
     fn refresh_search(&mut self) {
@@ -661,10 +648,12 @@ impl State {
             session_manager: SessionManager::default(),
             directories: self.directories.clone(),
         };
-        clone.session_manager.update_sessions(self.session_manager.sessions().to_vec());
-        clone.session_manager.update_resurrectable_sessions(
-            self.session_manager.resurrectable_sessions().to_vec(),
-        );
+        clone
+            .session_manager
+            .update_sessions(self.session_manager.sessions().to_vec());
+        clone
+            .session_manager
+            .update_resurrectable_sessions(self.session_manager.resurrectable_sessions().to_vec());
         clone.display_items()
     }
 
@@ -748,7 +737,9 @@ fn matching_directory<'a>(
             || session_name
                 .strip_prefix(&directory.session_name)
                 .and_then(|suffix| suffix.strip_prefix(separator))
-                .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()))
+                .is_some_and(|suffix| {
+                    !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit())
+                })
     })
 }
 
@@ -956,9 +947,10 @@ mod tests {
             is_current_session: false,
             ..SessionInfo::default()
         }]);
-        state.session_manager.update_resurrectable_sessions(vec![
-            ("loose-dead".to_string(), std::time::Duration::from_secs(1)),
-        ]);
+        state.session_manager.update_resurrectable_sessions(vec![(
+            "loose-dead".to_string(),
+            std::time::Duration::from_secs(1),
+        )]);
 
         let items = state.display_items();
 
@@ -1014,7 +1006,9 @@ mod tests {
             .unwrap();
         let repo_index = items
             .iter()
-            .position(|item| matches!(item, SessionItem::ExistingSession { name, .. } if name == "repo"))
+            .position(
+                |item| matches!(item, SessionItem::ExistingSession { name, .. } if name == "repo"),
+            )
             .unwrap();
         let other_index = items
             .iter()
@@ -1163,7 +1157,10 @@ mod tests {
             },
         ]);
         state.session_manager.update_resurrectable_sessions(vec![
-            ("repo-feature-a".to_string(), std::time::Duration::from_secs(1)),
+            (
+                "repo-feature-a".to_string(),
+                std::time::Duration::from_secs(1),
+            ),
             ("plain-dead".to_string(), std::time::Duration::from_secs(1)),
         ]);
 
@@ -1225,12 +1222,16 @@ mod tests {
 
         state.directories_loaded = true;
         state.sync_status();
-        assert!(matches!(state.status, Status::Busy(ref message) if message == "Loading sessions..."));
+        assert!(
+            matches!(state.status, Status::Busy(ref message) if message == "Loading sessions...")
+        );
 
         state.directories_loaded = false;
         state.sessions_loaded = true;
         state.sync_status();
-        assert!(matches!(state.status, Status::Busy(ref message) if message == "Loading zoxide directories..."));
+        assert!(
+            matches!(state.status, Status::Busy(ref message) if message == "Loading zoxide directories...")
+        );
 
         state.directories_loaded = true;
         state.sync_status();

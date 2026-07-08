@@ -1,7 +1,7 @@
 mod config;
 mod session;
-mod storage;
 mod state;
+mod storage;
 mod ui;
 mod zoxide;
 

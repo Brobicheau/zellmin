@@ -27,17 +27,27 @@ const ACTION_DELETE_WORKTREE: &str = "delete-worktree";
 pub enum CommandAction {
     DiscoverRepo,
     LoadRepoConfig,
-    FetchRemote { branch: String },
-    CheckBranch { branch: String },
-    CreateWorktree { branch: String },
+    FetchRemote {
+        branch: String,
+    },
+    CheckBranch {
+        branch: String,
+    },
+    CreateWorktree {
+        branch: String,
+    },
     CreateSession {
         branch: String,
         path: PathBuf,
         session: String,
     },
     ListWorktrees,
-    DeleteSession { session: String },
-    DeleteWorktree { path: PathBuf },
+    DeleteSession {
+        session: String,
+    },
+    DeleteWorktree {
+        path: PathBuf,
+    },
 }
 
 pub fn load_repo_config(repo_root: PathBuf) {
@@ -47,7 +57,10 @@ pub fn load_repo_config(repo_root: PathBuf) {
         &["cat", &config_path_str],
         BTreeMap::new(),
         repo_root,
-        BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_LOAD_REPO_CONFIG.to_string())]),
+        BTreeMap::from([(
+            CONTEXT_ACTION.to_string(),
+            ACTION_LOAD_REPO_CONFIG.to_string(),
+        )]),
     );
 }
 
@@ -107,7 +120,8 @@ mod tests {
 
     #[test]
     fn parses_discover_repo_action() {
-        let context = BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_DISCOVER_REPO.to_string())]);
+        let context =
+            BTreeMap::from([(CONTEXT_ACTION.to_string(), ACTION_DISCOVER_REPO.to_string())]);
 
         assert_eq!(parse_action(&context), Some(CommandAction::DiscoverRepo));
     }
@@ -130,7 +144,10 @@ mod tests {
     #[test]
     fn parses_create_session_action_with_all_context() {
         let context = BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_CREATE_SESSION.to_string()),
+            (
+                CONTEXT_ACTION.to_string(),
+                ACTION_CREATE_SESSION.to_string(),
+            ),
             (CONTEXT_BRANCH.to_string(), "main".to_string()),
             (CONTEXT_PATH.to_string(), "/tmp/repo".to_string()),
             (CONTEXT_SESSION.to_string(), "repo-main".to_string()),
@@ -149,8 +166,14 @@ mod tests {
     #[test]
     fn parses_delete_worktree_action_with_path() {
         let context = BTreeMap::from([
-            (CONTEXT_ACTION.to_string(), ACTION_DELETE_WORKTREE.to_string()),
-            (CONTEXT_PATH.to_string(), "/tmp/repo/.worktrees/feature".to_string()),
+            (
+                CONTEXT_ACTION.to_string(),
+                ACTION_DELETE_WORKTREE.to_string(),
+            ),
+            (
+                CONTEXT_PATH.to_string(),
+                "/tmp/repo/.worktrees/feature".to_string(),
+            ),
         ]);
 
         assert_eq!(
