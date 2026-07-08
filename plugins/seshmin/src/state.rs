@@ -152,64 +152,26 @@ impl State {
     }
 
     pub(crate) fn display_items(&self) -> Vec<SessionItem> {
+        // The UI reads search results while searching; otherwise it renders the full picker list.
         if self.search_engine.is_searching() {
-            return self
-                .search_engine
+            self.search_engine
                 .results()
                 .iter()
                 .map(|result| result.item.clone())
-                .collect();
+                .collect()
+        } else {
+            self.base_display_items()
         }
+    }
 
-        let mut items = Vec::new();
-
-        for session in self.session_manager.sessions() {
-            let directory = matching_directory(
-                &session.name,
-                &self.directories,
-                &self.config.session_separator,
-            );
-            items.push(SessionItem::ExistingSession {
-                name: session.name.clone(),
-                directory: directory
-                    .map(|directory| directory.directory.clone())
-                    .unwrap_or_default(),
-                is_current: session.is_current_session,
-                is_directory_session: directory.is_some(),
-                zoxide_ranking: directory.map(|directory| directory.ranking),
-            });
-        }
-
-        if self.config.show_resurrectable_sessions {
-            for (name, duration) in self.session_manager.resurrectable_sessions() {
-                let directory =
-                    matching_directory(name, &self.directories, &self.config.session_separator);
-                items.push(SessionItem::ResurrectableSession {
-                    name: name.clone(),
-                    duration_text: format!("created {} ago", format_duration(*duration)),
-                    is_directory_session: directory.is_some(),
-                    zoxide_ranking: directory.map(|directory| directory.ranking),
-                });
-            }
-        }
-
-        for directory in &self.directories {
-            items.push(SessionItem::Directory {
-                path: directory.directory.clone(),
-                session_name: directory.session_name.clone(),
-                zoxide_ranking: directory.ranking,
-            });
-        }
-
-        items.retain(|item| match self.item_filter {
-            ItemFilter::All => true,
-            ItemFilter::ZoxideOnly => item.is_zoxide_item(),
-            ItemFilter::NonZoxideOnly => !item.is_zoxide_item(),
-        });
-
-        sort_items(&mut items);
-
-        items
+    fn base_display_items(&self) -> Vec<SessionItem> {
+        // Search refreshes against the unspecialized list to avoid feeding results back into itself.
+        build_base_display_items(
+            &self.session_manager,
+            &self.directories,
+            &self.config,
+            self.item_filter,
+        )
     }
 
     pub(crate) fn selected_index(&self) -> usize {
@@ -328,7 +290,7 @@ impl State {
                 true
             }
             BareKey::Backspace if key.has_no_modifiers() => {
-                let items = self.unfiltered_items();
+                let items = self.base_display_items();
                 self.search_engine.backspace(&items);
                 true
             }
@@ -353,7 +315,7 @@ impl State {
                 true
             }
             BareKey::Char(character) if key.has_no_modifiers() && !character.is_control() => {
-                let items = self.unfiltered_items();
+                let items = self.base_display_items();
                 self.search_engine.add_char(character, &items);
                 true
             }
@@ -628,33 +590,9 @@ impl State {
 
     fn refresh_search(&mut self) {
         if self.search_engine.is_searching() {
-            let items = self.unfiltered_items();
+            let items = self.base_display_items();
             self.search_engine.refresh(&items);
         }
-    }
-
-    fn unfiltered_items(&self) -> Vec<SessionItem> {
-        let mut clone = Self {
-            search_engine: SearchEngine::default(),
-            selected_index: self.selected_index,
-            show_help: self.show_help,
-            item_filter: self.item_filter,
-            sessions_loaded: self.sessions_loaded,
-            directories_loaded: self.directories_loaded,
-            draft_session: self.draft_session.clone(),
-            status: self.status.clone(),
-            active_screen: self.active_screen,
-            config: self.config.clone(),
-            session_manager: SessionManager::default(),
-            directories: self.directories.clone(),
-        };
-        clone
-            .session_manager
-            .update_sessions(self.session_manager.sessions().to_vec());
-        clone
-            .session_manager
-            .update_resurrectable_sessions(self.session_manager.resurrectable_sessions().to_vec());
-        clone.display_items()
     }
 
     fn selected_item(&self) -> Option<SessionItem> {
@@ -727,11 +665,65 @@ impl State {
     }
 }
 
+fn build_base_display_items(
+    session_manager: &SessionManager,
+    directories: &[ZoxideDirectory],
+    config: &Config,
+    item_filter: ItemFilter,
+) -> Vec<SessionItem> {
+    // Merge every selectable source into one list before applying filters and display ordering.
+    let mut items = Vec::new();
+
+    for session in session_manager.sessions() {
+        let directory = matching_directory(&session.name, directories, &config.session_separator);
+        items.push(SessionItem::ExistingSession {
+            name: session.name.clone(),
+            directory: directory
+                .map(|directory| directory.directory.clone())
+                .unwrap_or_default(),
+            is_current: session.is_current_session,
+            is_directory_session: directory.is_some(),
+            zoxide_ranking: directory.map(|directory| directory.ranking),
+        });
+    }
+
+    if config.show_resurrectable_sessions {
+        for (name, duration) in session_manager.resurrectable_sessions() {
+            let directory = matching_directory(name, directories, &config.session_separator);
+            items.push(SessionItem::ResurrectableSession {
+                name: name.clone(),
+                duration_text: format!("created {} ago", format_duration(*duration)),
+                is_directory_session: directory.is_some(),
+                zoxide_ranking: directory.map(|directory| directory.ranking),
+            });
+        }
+    }
+
+    for directory in directories {
+        items.push(SessionItem::Directory {
+            path: directory.directory.clone(),
+            session_name: directory.session_name.clone(),
+            zoxide_ranking: directory.ranking,
+        });
+    }
+
+    items.retain(|item| match item_filter {
+        ItemFilter::All => true,
+        ItemFilter::ZoxideOnly => item.is_zoxide_item(),
+        ItemFilter::NonZoxideOnly => !item.is_zoxide_item(),
+    });
+
+    sort_items(&mut items);
+
+    items
+}
+
 fn matching_directory<'a>(
     session_name: &str,
     directories: &'a [ZoxideDirectory],
     separator: &str,
 ) -> Option<&'a ZoxideDirectory> {
+    // Treat incremented names like `repo.2` as belonging to the original `repo` directory.
     directories.iter().find(|directory| {
         directory.session_name == session_name
             || session_name
