@@ -215,11 +215,11 @@ fn directory_display_name(path: &str) -> String {
         .to_string()
 }
 
-fn visible_slice<'a>(
-    items: &'a [SessionItem],
+fn visible_slice(
+    items: &[SessionItem],
     selected_index: usize,
     max_rows: usize,
-) -> Vec<(usize, &'a SessionItem)> {
+) -> Vec<(usize, &SessionItem)> {
     if items.is_empty() || max_rows == 0 {
         return Vec::new();
     }

@@ -764,7 +764,9 @@ fn validate_session_name(session_name: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 

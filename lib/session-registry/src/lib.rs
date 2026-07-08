@@ -73,7 +73,6 @@ fn parse_session_names(contents: &str) -> BTreeSet<String> {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
@@ -88,7 +87,7 @@ mod tests {
         ));
         let _ = fs::remove_dir_all(&unique_root);
         TreeminSessionRegistry::with_storage(
-            HostStorage::with_host_root(PathBuf::from(unique_root), "treemin-test").unwrap(),
+            HostStorage::with_host_root(unique_root, "treemin-test").unwrap(),
         )
     }
 

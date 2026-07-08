@@ -8,6 +8,7 @@ use plugin_ui::{
 
 const TOP_PADDING_LINES: usize = 2;
 
+#[allow(clippy::too_many_arguments)]
 pub fn render(
     status: &Status,
     repo_root: Option<&Path>,
@@ -40,6 +41,7 @@ pub fn render(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_ready(
     repo_root: Option<&Path>,
     repo_name: Option<&String>,
