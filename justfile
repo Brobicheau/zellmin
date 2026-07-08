@@ -13,6 +13,7 @@ seshmin_release_plugin_path := "target/" + wasm_target + "/release/" + seshmin_p
 default:
     @just --list
 
+
 # Check all crates for the configured wasm target
 [group('Build')]
 check:
@@ -42,6 +43,10 @@ clippy:
 [group('Quality')]
 test:
     cargo test --workspace
+
+[group('Quality')]
+debug-logs:
+    tail -f "$(dirname "$(mktemp --dry)")/zellij-$(id -u)/zellij-log/zellij.log"
 
 # Print the debug treemin plugin wasm path
 [group('Treemin')]
@@ -82,3 +87,5 @@ seshmin-open:
 [group('Seshmin')]
 seshmin-open-release:
     zellij action launch-or-focus-plugin "file:$PWD/{{seshmin_release_plugin_path}}" --floating --skip-plugin-cache
+
+
