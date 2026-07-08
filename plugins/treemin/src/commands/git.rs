@@ -45,7 +45,12 @@ pub fn fetch_remote(repo_root: PathBuf, remote: &str, branch: &str) {
 
 pub fn check_branch(repo_root: PathBuf, branch: &str) {
     run_command_with_env_variables_and_cwd(
-        &["git", "rev-parse", "--verify", &format!("refs/heads/{branch}")],
+        &[
+            "git",
+            "rev-parse",
+            "--verify",
+            &format!("refs/heads/{branch}"),
+        ],
         BTreeMap::new(),
         repo_root,
         BTreeMap::from([
@@ -87,7 +92,13 @@ pub fn create_worktree(
 
 pub fn create_worktree_existing(repo_root: PathBuf, branch: &str, worktree_path: &Path) {
     let worktree_path_string = worktree_path.display().to_string();
-    let command = vec!["git", "worktree", "add", worktree_path_string.as_str(), branch];
+    let command = vec![
+        "git",
+        "worktree",
+        "add",
+        worktree_path_string.as_str(),
+        branch,
+    ];
 
     run_command_with_env_variables_and_cwd(
         &command,
@@ -118,7 +129,13 @@ pub fn list_worktrees(repo_root: PathBuf) {
 pub fn delete_worktree(repo_root: PathBuf, worktree_path: &Path) {
     let worktree_path_string = worktree_path.display().to_string();
     run_command_with_env_variables_and_cwd(
-        &["git", "worktree", "remove", "--force", &worktree_path_string],
+        &[
+            "git",
+            "worktree",
+            "remove",
+            "--force",
+            &worktree_path_string,
+        ],
         BTreeMap::new(),
         repo_root,
         BTreeMap::from([
@@ -132,7 +149,10 @@ pub fn delete_worktree(repo_root: PathBuf, worktree_path: &Path) {
 }
 
 pub fn parse_repo_roots(output: &str) -> Option<(PathBuf, PathBuf)> {
-    let mut lines = output.lines().map(str::trim).filter(|line| !line.is_empty());
+    let mut lines = output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty());
     let current_worktree_root = PathBuf::from(lines.next()?);
     let git_common_dir = PathBuf::from(lines.next()?);
     let repo_root = git_common_dir.parent()?.to_path_buf();
@@ -146,7 +166,9 @@ pub fn parse_worktree_locations(
     let repo_root = current_repo_root.map(shared_repo_root);
     output
         .split("\n\n")
-        .filter_map(|block| parse_worktree_location_block(block, current_repo_root, repo_root.as_deref()))
+        .filter_map(|block| {
+            parse_worktree_location_block(block, current_repo_root, repo_root.as_deref())
+        })
         .collect()
 }
 
@@ -235,10 +257,8 @@ mod tests {
     fn marks_linked_worktree_as_current_when_started_inside_it() {
         let output = "worktree /tmp/repo\nHEAD abc123\nbranch refs/heads/main\n\nworktree /tmp/repo/.worktrees/feature\nHEAD def456\nbranch refs/heads/feature/test\n";
 
-        let worktrees = parse_worktree_locations(
-            output,
-            Some(Path::new("/tmp/repo/.worktrees/feature")),
-        );
+        let worktrees =
+            parse_worktree_locations(output, Some(Path::new("/tmp/repo/.worktrees/feature")));
 
         assert!(!worktrees[0].is_current);
         assert!(worktrees[1].is_current);

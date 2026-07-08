@@ -78,7 +78,8 @@ impl Config {
         }
 
         if let Some(truncate_session_names) = configuration.get("truncate_session_names") {
-            config.truncate_session_names = truncate_session_names.trim().eq_ignore_ascii_case("true");
+            config.truncate_session_names =
+                truncate_session_names.trim().eq_ignore_ascii_case("true");
         }
 
         config
@@ -126,7 +127,10 @@ impl Config {
     }
 
     fn apply_repo_config(&mut self, repo_config: RepoConfig) {
-        if let Some(worktree_dir_name) = repo_config.worktree_dir_name.and_then(|value| trim_to_option(&value)) {
+        if let Some(worktree_dir_name) = repo_config
+            .worktree_dir_name
+            .and_then(|value| trim_to_option(&value))
+        {
             self.worktree_dir_name = worktree_dir_name;
         }
 
@@ -191,7 +195,10 @@ mod tests {
         assert_eq!(config.base_branch, None);
         assert_eq!(config.remote, "origin");
         assert!(!config.auto_fetch);
-        assert_eq!(config.worktree_naming_pattern, WorktreeNamingPattern::Branch);
+        assert_eq!(
+            config.worktree_naming_pattern,
+            WorktreeNamingPattern::Branch
+        );
         assert!(config.truncate_session_names);
     }
 
@@ -215,7 +222,10 @@ mod tests {
         assert_eq!(config.base_branch, Some("main".to_string()));
         assert_eq!(config.remote, "upstream");
         assert!(config.auto_fetch);
-        assert_eq!(config.worktree_naming_pattern, WorktreeNamingPattern::BranchHash);
+        assert_eq!(
+            config.worktree_naming_pattern,
+            WorktreeNamingPattern::BranchHash
+        );
     }
 
     #[test]

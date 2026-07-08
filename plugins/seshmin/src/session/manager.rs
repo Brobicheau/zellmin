@@ -28,7 +28,8 @@ impl SessionManager {
     where
         F: FnMut(&(String, Duration)) -> bool,
     {
-        self.resurrectable_sessions.retain(|session| predicate(session));
+        self.resurrectable_sessions
+            .retain(|session| predicate(session));
     }
 
     pub fn sessions(&self) -> &[SessionInfo] {
@@ -104,7 +105,9 @@ impl SessionManager {
     }
 
     fn name_exists(&self, candidate: &str) -> bool {
-        self.sessions.iter().any(|session| session.name == candidate)
+        self.sessions
+            .iter()
+            .any(|session| session.name == candidate)
             || self
                 .resurrectable_sessions
                 .iter()

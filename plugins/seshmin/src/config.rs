@@ -119,7 +119,10 @@ mod tests {
         assert_eq!(config.session_separator, "_");
         assert!(config.show_resurrectable_sessions);
         assert_eq!(config.base_paths, vec!["/home/user/projects", "/tmp/work"]);
-        assert_eq!(config.search_directories, vec!["/home/user/projects", "/tmp/work"]);
+        assert_eq!(
+            config.search_directories,
+            vec!["/home/user/projects", "/tmp/work"]
+        );
         assert_eq!(
             config.ignored_directories,
             vec!["/home/user/projects/archive", "/tmp/scratch"]

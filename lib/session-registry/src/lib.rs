@@ -55,7 +55,8 @@ impl TreeminSessionRegistry {
             lines.push(String::new());
             lines.join("\n")
         };
-        self.storage.write_string(TREEMIN_SESSIONS_FILE, &contents)?;
+        self.storage
+            .write_string(TREEMIN_SESSIONS_FILE, &contents)?;
         Ok(())
     }
 }
@@ -100,10 +101,7 @@ mod tests {
 
         assert_eq!(
             registry.list().unwrap(),
-            BTreeSet::from([
-                "repo-feature-a".to_string(),
-                "repo-feature-b".to_string(),
-            ])
+            BTreeSet::from(["repo-feature-a".to_string(), "repo-feature-b".to_string(),])
         );
     }
 

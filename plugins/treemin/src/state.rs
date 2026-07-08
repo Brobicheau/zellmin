@@ -417,9 +417,13 @@ impl State {
                     let worktree_path = self
                         .worktree_sessions
                         .iter()
-                        .find(|entry| entry.live_session_name.as_deref() == Some(session_name.as_str()))
+                        .find(|entry| {
+                            entry.live_session_name.as_deref() == Some(session_name.as_str())
+                        })
                         .and_then(|entry| {
-                            if entry.is_current || self.repo_root.as_deref() == entry.path.as_deref() {
+                            if entry.is_current
+                                || self.repo_root.as_deref() == entry.path.as_deref()
+                            {
                                 None
                             } else {
                                 entry.path.clone()
@@ -430,7 +434,9 @@ impl State {
                     if let Some(registry) = treemin_registry() {
                         let _ = registry.remove(&session_name);
                     }
-                    if let (Some(repo_root), Some(worktree_path)) = (self.repo_root.clone(), worktree_path) {
+                    if let (Some(repo_root), Some(worktree_path)) =
+                        (self.repo_root.clone(), worktree_path)
+                    {
                         self.pending_delete = Some(PendingDelete {
                             session_name: Some(session_name.clone()),
                             worktree_path: Some(worktree_path.clone()),
@@ -566,8 +572,9 @@ impl State {
 
     fn switch_selected_worktree_session(&mut self) {
         let Some(selected_index) = self.selected_index else {
-            self.status =
-                Status::Error("No selectable worktree sessions found for this repository.".to_string());
+            self.status = Status::Error(
+                "No selectable worktree sessions found for this repository.".to_string(),
+            );
             return;
         };
 
@@ -657,8 +664,9 @@ impl State {
 
     fn delete_selected_worktree_session(&mut self) {
         let Some(selected_index) = self.selected_index else {
-            self.status =
-                Status::Error("No selectable worktree sessions found for this repository.".to_string());
+            self.status = Status::Error(
+                "No selectable worktree sessions found for this repository.".to_string(),
+            );
             return;
         };
 
@@ -771,7 +779,8 @@ impl State {
             &self.known_worktrees,
             &self.live_session_names,
         );
-        self.selected_index = selected_index_for_sessions(&self.worktree_sessions, previous_selection);
+        self.selected_index =
+            selected_index_for_sessions(&self.worktree_sessions, previous_selection);
     }
 
     fn selected_session_key(&self) -> Option<String> {
@@ -790,7 +799,13 @@ impl State {
 
     fn session_name(&self, branch: &str) -> String {
         let sibling_branches = sibling_branches_with(self.known_worktrees.iter(), branch);
-        naming::session_name(self.repo_name.as_deref(), branch, &self.config, &sibling_branches, false)
+        naming::session_name(
+            self.repo_name.as_deref(),
+            branch,
+            &self.config,
+            &sibling_branches,
+            false,
+        )
     }
 }
 
@@ -892,7 +907,9 @@ fn sibling_branches_with<'a>(
     worktrees: impl Iterator<Item = &'a WorktreeLocation>,
     extra_branch: &str,
 ) -> Vec<String> {
-    let mut branches = worktrees.map(|worktree| worktree.branch.clone()).collect::<Vec<_>>();
+    let mut branches = worktrees
+        .map(|worktree| worktree.branch.clone())
+        .collect::<Vec<_>>();
     if !extra_branch.is_empty() {
         branches.push(extra_branch.to_string());
     }
@@ -908,10 +925,9 @@ fn selected_index_for_sessions(
     }
 
     if let Some(previous_selection) = previous_selection {
-        if let Some(index) = sessions
-            .iter()
-            .position(|entry| !entry.is_current && session_selection_key(entry) == previous_selection)
-        {
+        if let Some(index) = sessions.iter().position(|entry| {
+            !entry.is_current && session_selection_key(entry) == previous_selection
+        }) {
             return Some(index);
         }
     }
@@ -1024,20 +1040,14 @@ mod tests {
             Some("repo"),
             &config,
             &worktrees,
-            &[
-                "repo".to_string(),
-                "repo|feature-test".to_string(),
-            ],
+            &["repo".to_string(), "repo|feature-test".to_string()],
         );
 
         assert_eq!(sessions.len(), 2);
         assert_eq!(sessions[0].branch, "main");
         assert_eq!(sessions[0].path, Some(PathBuf::from("/tmp/repo")));
         assert_eq!(sessions[0].session_name, "repo");
-        assert_eq!(
-            sessions[0].live_session_name.as_deref(),
-            Some("repo")
-        );
+        assert_eq!(sessions[0].live_session_name.as_deref(), Some("repo"));
         assert_eq!(sessions[1].branch, "feature/test");
         assert_eq!(
             sessions[1].path,
@@ -1247,17 +1257,16 @@ mod tests {
     #[test]
     fn create_worktree_session_switches_to_matching_legacy_session_for_hyphenated_repo() {
         let config = Config::default();
-        let legacy_session_name =
-            naming::session_name_candidates(
-                Some("repo-name"),
-                "feature/test",
-                &config,
-                &["feature/test".to_string()],
-                false,
-            )
-                .into_iter()
-                .find(|candidate| candidate != "repo-name-feature-test")
-                .expect("expected a secondary session name candidate");
+        let legacy_session_name = naming::session_name_candidates(
+            Some("repo-name"),
+            "feature/test",
+            &config,
+            &["feature/test".to_string()],
+            false,
+        )
+        .into_iter()
+        .find(|candidate| candidate != "repo-name-feature-test")
+        .expect("expected a secondary session name candidate");
 
         let mut state = State {
             config,
