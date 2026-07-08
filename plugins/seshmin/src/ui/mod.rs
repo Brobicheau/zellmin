@@ -7,8 +7,8 @@ use plugin_ui::{
 };
 
 const TOP_PADDING_LINES: usize = 2;
-const MAIN_CHROME_LINES: usize = 14;
-const MAIN_HELP_LINES: usize = 8;
+const MAIN_CHROME_LINES: usize = 13;
+const MAIN_HELP_LINES: usize = 7;
 const NEW_SESSION_CHROME_LINES: usize = 14;
 const NEW_SESSION_HELP_LINES: usize = 7;
 
@@ -50,7 +50,6 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
         style("⌕", BOLD, Some(MAGENTA)),
         search_value
     ));
-    panel.print_key_value("Filter", state.item_filter.label());
     panel.print_key_value("Directories", &state.directory_count().to_string());
     panel.print_key_value("Sessions", &state.session_count().to_string());
 
@@ -85,7 +84,6 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
         }
         panel.print_help("Ctrl+Enter", "quick create selected directory");
         panel.print_help("Up/Down", "move selection");
-        panel.print_help("Ctrl+F", "cycle result filter");
         panel.print_help("Ctrl+D", "delete selected session");
         panel.print_help("Ctrl+H", "toggle help");
         panel.print_help("Ctrl+R", "refresh sessions and directories");

@@ -50,20 +50,6 @@ impl SessionItem {
         )
     }
 
-    pub fn is_zoxide_item(&self) -> bool {
-        match self {
-            Self::ExistingSession {
-                is_directory_session,
-                ..
-            }
-            | Self::ResurrectableSession {
-                is_directory_session,
-                ..
-            } => *is_directory_session,
-            Self::Directory { .. } => true,
-        }
-    }
-
     pub fn sort_group(&self) -> u8 {
         match self {
             Self::ExistingSession {

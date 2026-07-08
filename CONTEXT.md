@@ -107,10 +107,6 @@ This file captures the current working context for this repository so future wor
   - among live sessions, directory-backed before loose sessions
   - remaining items ordered by zoxide rank
 - Search and selection behavior updated so the current session stays non-selectable.
-- `Ctrl+F` cycles item filters:
-  - `all`
-  - `zoxide only`
-  - `non-zoxide only`
 - Conservative session-name max is enforced in `seshmin` as well.
 
 ## treemin Behavior Completed So Far

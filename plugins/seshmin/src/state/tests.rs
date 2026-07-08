@@ -301,68 +301,6 @@ fn non_active_items_sort_by_zoxide_ranking() {
 }
 
 #[test]
-fn zoxide_only_filter_keeps_only_directory_backed_items() {
-    let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
-    state.directories = vec![ZoxideDirectory {
-        ranking: 2.0,
-        directory: "/tmp/repo".to_string(),
-        session_name: "repo".to_string(),
-    }];
-    state.session_manager.update_sessions(vec![
-        SessionInfo {
-            name: "repo".to_string(),
-            ..SessionInfo::default()
-        },
-        SessionInfo {
-            name: "loose-live".to_string(),
-            ..SessionInfo::default()
-        },
-    ]);
-    state.session_manager.update_resurrectable_sessions(vec![
-        ("repo.2".to_string(), std::time::Duration::from_secs(1)),
-        ("loose-dead".to_string(), std::time::Duration::from_secs(1)),
-    ]);
-    state.item_filter = ItemFilter::ZoxideOnly;
-
-    let items = state.display_items();
-
-    assert!(!items.is_empty());
-    assert!(items.iter().all(SessionItem::is_zoxide_item));
-}
-
-#[test]
-fn non_zoxide_filter_hides_directory_backed_items() {
-    let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
-    state.directories = vec![ZoxideDirectory {
-        ranking: 2.0,
-        directory: "/tmp/repo".to_string(),
-        session_name: "repo".to_string(),
-    }];
-    state.session_manager.update_sessions(vec![
-        SessionInfo {
-            name: "repo".to_string(),
-            ..SessionInfo::default()
-        },
-        SessionInfo {
-            name: "loose-live".to_string(),
-            ..SessionInfo::default()
-        },
-    ]);
-    state.session_manager.update_resurrectable_sessions(vec![
-        ("repo.2".to_string(), std::time::Duration::from_secs(1)),
-        ("loose-dead".to_string(), std::time::Duration::from_secs(1)),
-    ]);
-    state.item_filter = ItemFilter::NonZoxideOnly;
-
-    let items = state.display_items();
-
-    assert!(!items.is_empty());
-    assert!(items.iter().all(|item| !item.is_zoxide_item()));
-}
-
-#[test]
 fn filters_out_treemin_managed_sessions() {
     let root = std::env::temp_dir().join(format!(
         "seshmin-registry-{}",

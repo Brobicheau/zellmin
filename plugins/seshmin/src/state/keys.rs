@@ -28,11 +28,11 @@ impl State {
     fn handle_main_key(&mut self, key: KeyWithModifier) -> bool {
         match key.bare_key {
             BareKey::Up if key.has_no_modifiers() => {
-                self.move_selection_up();
+                self.move_selection(false);
                 true
             }
             BareKey::Down if key.has_no_modifiers() => {
-                self.move_selection_down();
+                self.move_selection(true);
                 true
             }
             BareKey::Enter if key.has_no_modifiers() => {
@@ -49,12 +49,6 @@ impl State {
             }
             BareKey::Char('h') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
                 self.show_help = !self.show_help;
-                true
-            }
-            BareKey::Char('f') if key.has_modifiers(&[KeyModifier::Ctrl]) => {
-                self.item_filter = self.item_filter.next();
-                self.refresh_search();
-                self.clamp_selection();
                 true
             }
             BareKey::Backspace if key.has_no_modifiers() => {

@@ -16,7 +16,6 @@ impl State {
         self.status = Status::Loading;
         self.active_screen = ActiveScreen::Main;
         self.draft_session = None;
-        self.item_filter = super::ItemFilter::All;
         self.sessions_loaded = false;
         self.directories_loaded = false;
         rename_plugin_pane(get_plugin_ids().plugin_id, "seshmin");

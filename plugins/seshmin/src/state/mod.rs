@@ -17,7 +17,6 @@ pub struct State {
     search_engine: SearchEngine,
     selected_index: usize,
     pub(crate) show_help: bool,
-    pub(crate) item_filter: ItemFilter,
     sessions_loaded: bool,
     directories_loaded: bool,
 }
@@ -34,31 +33,6 @@ pub enum Status {
 pub enum ActiveScreen {
     Main,
     NewSession,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ItemFilter {
-    All,
-    ZoxideOnly,
-    NonZoxideOnly,
-}
-
-impl ItemFilter {
-    fn next(self) -> Self {
-        match self {
-            Self::All => Self::ZoxideOnly,
-            Self::ZoxideOnly => Self::NonZoxideOnly,
-            Self::NonZoxideOnly => Self::All,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::All => "all",
-            Self::ZoxideOnly => "zoxide only",
-            Self::NonZoxideOnly => "non-zoxide only",
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -87,7 +61,6 @@ impl Default for State {
             search_engine: SearchEngine::default(),
             selected_index: 0,
             show_help: false,
-            item_filter: ItemFilter::All,
             sessions_loaded: false,
             directories_loaded: false,
         }
