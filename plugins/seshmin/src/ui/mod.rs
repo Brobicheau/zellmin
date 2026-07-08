@@ -7,7 +7,7 @@ use plugin_ui::{
 };
 
 const TOP_PADDING_LINES: usize = 2;
-const MAIN_CHROME_LINES: usize = 13;
+const MAIN_CHROME_LINES: usize = 11;
 const MAIN_HELP_LINES: usize = 7;
 const NEW_SESSION_CHROME_LINES: usize = 14;
 const NEW_SESSION_HELP_LINES: usize = 7;
@@ -39,7 +39,6 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
     println!();
     panel.print_top();
     panel.print_section_header("Search");
-    panel.print_line(&style("Press Ctrl+H to show help", DIM, Some(WHITE)));
     let search_value = if state.search_term().is_empty() {
         style("type to search", DIM, Some(WHITE))
     } else {
@@ -50,8 +49,6 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
         style("⌕", BOLD, Some(MAGENTA)),
         search_value
     ));
-    panel.print_key_value("Directories", &state.directory_count().to_string());
-    panel.print_key_value("Sessions", &state.session_count().to_string());
 
     panel.print_section_header("Results");
     if items.is_empty() {
@@ -72,6 +69,10 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
             panel.print_line(&render_item_line(item, selected, panel.width()));
         }
     }
+    panel.print_line(&main_footer_hint(
+        state.config.default_layout.is_some(),
+        panel.width(),
+    ));
     panel.print_bottom();
     println!();
 
@@ -90,6 +91,54 @@ fn render_main(state: &State, rows: usize, panel: BoxPanel) {
         panel.print_help("Esc", "clear search or close");
         panel.print_bottom();
     }
+}
+
+fn main_footer_hint(has_default_layout: bool, width: usize) -> String {
+    let enter_action = if has_default_layout {
+        "switch/create"
+    } else {
+        "switch/choose"
+    };
+
+    if width >= 51 {
+        return format!(
+            "{} {} {} {} {} {} {} {}",
+            footer_key("Enter"),
+            style(enter_action, DIM, Some(WHITE)),
+            footer_separator(),
+            footer_key("Ctrl+H"),
+            style("help", DIM, Some(WHITE)),
+            footer_separator(),
+            footer_key("Esc"),
+            style("close", DIM, Some(WHITE))
+        );
+    }
+
+    if width >= 31 {
+        return format!(
+            "{} {} {} {} {} {}",
+            footer_key("Enter"),
+            footer_separator(),
+            footer_key("Ctrl+H"),
+            style("help", DIM, Some(WHITE)),
+            footer_separator(),
+            footer_key("Esc")
+        );
+    }
+
+    format!(
+        "{} {}",
+        footer_key("Ctrl+H"),
+        style("help", DIM, Some(WHITE))
+    )
+}
+
+fn footer_key(key: &str) -> String {
+    style(&format!("[{key}]"), BOLD, Some(CYAN))
+}
+
+fn footer_separator() -> String {
+    style("·", DIM, Some(WHITE))
 }
 
 fn render_new_session(state: &State, rows: usize, panel: BoxPanel) {

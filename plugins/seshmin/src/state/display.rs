@@ -76,14 +76,6 @@ impl State {
         self.search_engine.search_term()
     }
 
-    pub(crate) fn directory_count(&self) -> usize {
-        self.directories.len()
-    }
-
-    pub(crate) fn session_count(&self) -> usize {
-        self.session_manager.sessions().len()
-    }
-
     pub(super) fn refresh_search(&mut self) {
         if self.search_engine.is_searching() {
             let items = self.base_display_items();
