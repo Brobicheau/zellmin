@@ -1755,7 +1755,6 @@ version = "0.1.0"
 dependencies = [
  "fuzzy-matcher",
  "host-storage",
- "humantime",
  "plugin-ui",
  "session-registry",
  "zellij-tile",

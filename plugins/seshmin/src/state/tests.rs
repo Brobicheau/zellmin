@@ -65,8 +65,7 @@ fn delete_requires_selected_session_not_directory() {
 
     assert!(matches!(
         state.status,
-        Status::Error(ref message)
-            if message == "Select a live or resurrectable session to delete it."
+        Status::Error(ref message) if message == "Select a live session to delete it."
     ));
 }
 
@@ -168,35 +167,8 @@ fn current_session_only_list_has_no_selectable_item() {
 }
 
 #[test]
-fn shows_sessions_even_without_matching_directory() {
-    let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
-    state.session_manager.update_sessions(vec![SessionInfo {
-        name: "loose-live".to_string(),
-        is_current_session: false,
-        ..SessionInfo::default()
-    }]);
-    state.session_manager.update_resurrectable_sessions(vec![(
-        "loose-dead".to_string(),
-        std::time::Duration::from_secs(1),
-    )]);
-
-    let items = state.display_items();
-
-    assert!(items.iter().any(|item| matches!(
-        item,
-        SessionItem::ExistingSession { name, .. } if name == "loose-live"
-    )));
-    assert!(items.iter().any(|item| matches!(
-        item,
-        SessionItem::ResurrectableSession { name, .. } if name == "loose-dead"
-    )));
-}
-
-#[test]
 fn active_sessions_sort_before_other_items() {
     let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
     state.directories = vec![
         ZoxideDirectory {
             ranking: 2.0,
@@ -219,19 +191,11 @@ fn active_sessions_sort_before_other_items() {
             ..SessionInfo::default()
         },
     ]);
-    state.session_manager.update_resurrectable_sessions(vec![
-        ("loose-dead".to_string(), std::time::Duration::from_secs(1)),
-        ("other".to_string(), std::time::Duration::from_secs(1)),
-    ]);
 
     let items = state.display_items();
     let loose_live_index = items
         .iter()
         .position(|item| matches!(item, SessionItem::ExistingSession { name, .. } if name == "loose-live"))
-        .unwrap();
-    let loose_dead_index = items
-        .iter()
-        .position(|item| matches!(item, SessionItem::ResurrectableSession { name, .. } if name == "loose-dead"))
         .unwrap();
     let repo_index = items
         .iter()
@@ -241,18 +205,16 @@ fn active_sessions_sort_before_other_items() {
         .unwrap();
     let other_index = items
         .iter()
-        .position(|item| matches!(item, SessionItem::ResurrectableSession { name, .. } if name == "other"))
+        .position(|item| matches!(item, SessionItem::Directory { session_name, .. } if session_name == "other"))
         .unwrap();
 
     assert!(repo_index < loose_live_index);
     assert!(loose_live_index < other_index);
-    assert!(other_index < loose_dead_index);
 }
 
 #[test]
-fn non_active_items_sort_by_zoxide_ranking() {
+fn directory_items_sort_by_zoxide_ranking() {
     let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
     state.directories = vec![
         ZoxideDirectory {
             ranking: 9.0,
@@ -270,10 +232,6 @@ fn non_active_items_sort_by_zoxide_ranking() {
             session_name: "low".to_string(),
         },
     ];
-    state.session_manager.update_resurrectable_sessions(vec![
-        ("mid".to_string(), std::time::Duration::from_secs(1)),
-        ("loose".to_string(), std::time::Duration::from_secs(1)),
-    ]);
 
     let items = state.display_items();
     let high_index = items
@@ -282,22 +240,15 @@ fn non_active_items_sort_by_zoxide_ranking() {
         .unwrap();
     let mid_index = items
         .iter()
-        .position(
-            |item| matches!(item, SessionItem::ResurrectableSession { name, .. } if name == "mid"),
-        )
+        .position(|item| matches!(item, SessionItem::Directory { session_name, .. } if session_name == "mid"))
         .unwrap();
     let low_index = items
         .iter()
         .position(|item| matches!(item, SessionItem::Directory { session_name, .. } if session_name == "low"))
         .unwrap();
-    let loose_index = items
-        .iter()
-        .position(|item| matches!(item, SessionItem::ResurrectableSession { name, .. } if name == "loose"))
-        .unwrap();
 
     assert!(high_index < mid_index);
     assert!(mid_index < low_index);
-    assert!(low_index < loose_index);
 }
 
 #[test]
@@ -314,7 +265,6 @@ fn filters_out_treemin_managed_sessions() {
     registry.add("repo-feature-a").unwrap();
 
     let mut state = State::default();
-    state.config.show_resurrectable_sessions = true;
     state.session_manager.update_sessions(vec![
         SessionInfo {
             name: "repo-feature-a".to_string(),
@@ -325,14 +275,6 @@ fn filters_out_treemin_managed_sessions() {
             ..SessionInfo::default()
         },
     ]);
-    state.session_manager.update_resurrectable_sessions(vec![
-        (
-            "repo-feature-a".to_string(),
-            std::time::Duration::from_secs(1),
-        ),
-        ("plain-dead".to_string(), std::time::Duration::from_secs(1)),
-    ]);
-
     let managed_sessions = registry.list().unwrap();
     state.filter_managed_sessions(&managed_sessions);
 
@@ -342,31 +284,10 @@ fn filters_out_treemin_managed_sessions() {
         item,
         SessionItem::ExistingSession { name, .. } if name == "repo-feature-a"
     )));
-    assert!(!items.iter().any(|item| matches!(
-        item,
-        SessionItem::ResurrectableSession { name, .. } if name == "repo-feature-a"
-    )));
     assert!(items.iter().any(|item| matches!(
         item,
         SessionItem::ExistingSession { name, .. } if name == "plain-session"
     )));
-    assert!(items.iter().any(|item| matches!(
-        item,
-        SessionItem::ResurrectableSession { name, .. } if name == "plain-dead"
-    )));
-}
-
-#[test]
-fn directory_session_prefers_exact_resurrectable_match() {
-    let mut state = State::default();
-    state.session_manager.update_resurrectable_sessions(vec![
-        ("repo".to_string(), std::time::Duration::from_secs(1)),
-        ("repo.2".to_string(), std::time::Duration::from_secs(1)),
-    ]);
-
-    state.create_directory_session("/tmp/repo".to_string(), "repo".to_string(), true);
-
-    assert!(matches!(state.status, Status::Loading));
 }
 
 #[test]

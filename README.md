@@ -57,7 +57,6 @@ keybinds {
                 move_to_focused_tab true
                 default_layout "development"
                 session_separator "."
-                show_resurrectable_sessions "false"
                 search_directories "/home/user/projects|/home/user/src"
                 base_paths "/home/user/projects|/home/user/src"
                 ignored_directories "/home/user/projects/archive|/home/user/projects/tmp"
@@ -73,7 +72,6 @@ Configuration options:
 |--------|------|---------|-------------|
 | `default_layout` | String | _(none)_ | Layout used for session creation; when set, `Enter` skips the in-plugin layout picker |
 | `session_separator` | String | `.` | Separator used when generating session names |
-| `show_resurrectable_sessions` | Boolean | `false` | Include resurrectable sessions in the list |
 | `search_directories` | String | _(none)_ | Pipe-separated directories to include from zoxide results, including descendants |
 | `base_paths` | String | _(none)_ | Pipe-separated path prefixes stripped before name generation |
 | `ignored_directories` | String | _(none)_ | Pipe-separated directories excluded from zoxide results, including descendants |

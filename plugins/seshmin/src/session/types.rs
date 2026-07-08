@@ -7,12 +7,6 @@ pub enum SessionItem {
         is_directory_session: bool,
         zoxide_ranking: Option<f64>,
     },
-    ResurrectableSession {
-        name: String,
-        duration_text: String,
-        is_directory_session: bool,
-        zoxide_ranking: Option<f64>,
-    },
     Directory {
         path: String,
         session_name: String,
@@ -65,14 +59,13 @@ impl SessionItem {
                     2
                 }
             }
-            Self::ResurrectableSession { .. } | Self::Directory { .. } => 3,
+            Self::Directory { .. } => 3,
         }
     }
 
     pub fn zoxide_ranking(&self) -> Option<f64> {
         match self {
-            Self::ExistingSession { zoxide_ranking, .. }
-            | Self::ResurrectableSession { zoxide_ranking, .. } => *zoxide_ranking,
+            Self::ExistingSession { zoxide_ranking, .. } => *zoxide_ranking,
             Self::Directory { zoxide_ranking, .. } => Some(*zoxide_ranking),
         }
     }
@@ -94,7 +87,6 @@ impl SessionItem {
     pub fn label(&self) -> &str {
         match self {
             Self::ExistingSession { name, .. } => name,
-            Self::ResurrectableSession { name, .. } => name,
             Self::Directory { path, .. } => path,
         }
     }

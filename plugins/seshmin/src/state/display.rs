@@ -1,5 +1,3 @@
-use humantime::format_duration;
-
 use super::State;
 use crate::session::{next_selectable_index, SessionItem};
 use crate::zoxide::ZoxideDirectory;
@@ -37,19 +35,6 @@ impl State {
                 is_directory_session: directory.is_some(),
                 zoxide_ranking: directory.map(|directory| directory.ranking),
             });
-        }
-
-        if self.config.show_resurrectable_sessions {
-            for (name, duration) in self.session_manager.resurrectable_sessions() {
-                let directory =
-                    matching_directory(name, &self.directories, &self.config.session_separator);
-                items.push(SessionItem::ResurrectableSession {
-                    name: name.clone(),
-                    duration_text: format!("created {} ago", format_duration(*duration)),
-                    is_directory_session: directory.is_some(),
-                    zoxide_ranking: directory.map(|directory| directory.ranking),
-                });
-            }
         }
 
         for directory in &self.directories {

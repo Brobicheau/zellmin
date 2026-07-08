@@ -1,11 +1,8 @@
-use std::time::Duration;
-
-use zellij_tile::prelude::{delete_dead_session, kill_sessions, LayoutInfo, SessionInfo};
+use zellij_tile::prelude::{kill_sessions, LayoutInfo, SessionInfo};
 
 #[derive(Debug, Default)]
 pub struct SessionManager {
     sessions: Vec<SessionInfo>,
-    resurrectable_sessions: Vec<(String, Duration)>,
 }
 
 impl SessionManager {
@@ -20,24 +17,8 @@ impl SessionManager {
         self.sessions.retain(|session| predicate(session));
     }
 
-    pub fn update_resurrectable_sessions(&mut self, sessions: Vec<(String, Duration)>) {
-        self.resurrectable_sessions = sessions;
-    }
-
-    pub fn retain_resurrectable_sessions<F>(&mut self, mut predicate: F)
-    where
-        F: FnMut(&(String, Duration)) -> bool,
-    {
-        self.resurrectable_sessions
-            .retain(|session| predicate(session));
-    }
-
     pub fn sessions(&self) -> &[SessionInfo] {
         &self.sessions
-    }
-
-    pub fn resurrectable_sessions(&self) -> &[(String, Duration)] {
-        &self.resurrectable_sessions
     }
 
     pub fn current_session_name(&self) -> Option<&str> {
@@ -104,33 +85,14 @@ impl SessionManager {
         )
     }
 
-    pub fn delete_session(&self, session_name: &str) {
-        if self
-            .resurrectable_sessions
-            .iter()
-            .any(|(name, _)| name == session_name)
-        {
-            let _ = delete_dead_session(session_name);
-        } else {
-            let _ = kill_sessions(&[session_name]);
-        }
-    }
-
-    pub fn resurrectable_session_name(&self, session_name: &str) -> Option<&str> {
-        self.resurrectable_sessions
-            .iter()
-            .find(|(name, _)| name == session_name)
-            .map(|(name, _)| name.as_str())
+    pub fn kill_session(&self, session_name: &str) {
+        let _ = kill_sessions(&[session_name]);
     }
 
     fn name_exists(&self, candidate: &str) -> bool {
         self.sessions
             .iter()
             .any(|session| session.name == candidate)
-            || self
-                .resurrectable_sessions
-                .iter()
-                .any(|(name, _)| name == candidate)
     }
 
     fn has_incremented_name(&self, base_name: &str, separator: &str, max_len: usize) -> bool {
@@ -152,11 +114,6 @@ impl SessionManager {
         self.sessions
             .iter()
             .map(|session| session.name.as_str())
-            .chain(
-                self.resurrectable_sessions
-                    .iter()
-                    .map(|(name, _)| name.as_str()),
-            )
             .filter_map(|name| incremented_prefix(name, separator))
             .filter(|prefix| base_name.starts_with(prefix))
             .max_by_key(|prefix| prefix.len())
@@ -183,9 +140,15 @@ mod tests {
     #[test]
     fn increments_conflicting_session_names() {
         let mut manager = SessionManager::default();
-        manager.update_resurrectable_sessions(vec![
-            ("api".to_string(), Duration::from_secs(1)),
-            ("api.2".to_string(), Duration::from_secs(1)),
+        manager.update_sessions(vec![
+            SessionInfo {
+                name: "api".to_string(),
+                ..SessionInfo::default()
+            },
+            SessionInfo {
+                name: "api.2".to_string(),
+                ..SessionInfo::default()
+            },
         ]);
 
         assert_eq!(manager.generate_incremented_name("api", ".", 24), "api.3");
@@ -194,26 +157,14 @@ mod tests {
     #[test]
     fn incremented_names_respect_max_length() {
         let mut manager = SessionManager::default();
-        manager.update_resurrectable_sessions(vec![(
-            "abcdefghijklmnopqrst.2".to_string(),
-            Duration::from_secs(1),
-        )]);
+        manager.update_sessions(vec![SessionInfo {
+            name: "abcdefghijklmnopqrst.2".to_string(),
+            ..SessionInfo::default()
+        }]);
 
         let name = manager.generate_incremented_name("abcdefghijklmnopqrstuvwx", ".", 24);
 
         assert_eq!(name, "abcdefghijklmnopqrst.3");
         assert!(name.len() <= 24);
-    }
-
-    #[test]
-    fn finds_exact_resurrectable_session_name() {
-        let mut manager = SessionManager::default();
-        manager.update_resurrectable_sessions(vec![
-            ("api".to_string(), Duration::from_secs(1)),
-            ("api.2".to_string(), Duration::from_secs(1)),
-        ]);
-
-        assert_eq!(manager.resurrectable_session_name("api"), Some("api"));
-        assert_eq!(manager.resurrectable_session_name("missing"), None);
     }
 }

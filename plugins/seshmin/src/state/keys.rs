@@ -141,8 +141,7 @@ impl State {
         };
 
         match item {
-            SessionItem::ExistingSession { name, .. }
-            | SessionItem::ResurrectableSession { name, .. } => {
+            SessionItem::ExistingSession { name, .. } => {
                 switch_session(Some(&name));
                 hide_self();
             }
@@ -177,8 +176,7 @@ impl State {
         };
 
         match item {
-            SessionItem::ExistingSession { name, .. }
-            | SessionItem::ResurrectableSession { name, .. } => {
+            SessionItem::ExistingSession { name, .. } => {
                 switch_session(Some(&name));
                 hide_self();
             }
@@ -196,15 +194,6 @@ impl State {
         session_name: String,
         use_default_layout: bool,
     ) {
-        if let Some(resurrectable_session_name) = self
-            .session_manager
-            .resurrectable_session_name(&session_name)
-        {
-            switch_session(Some(resurrectable_session_name));
-            hide_self();
-            return;
-        }
-
         let next_name = self.session_manager.generate_incremented_name(
             &session_name,
             &self.config.session_separator,
@@ -245,9 +234,7 @@ impl State {
 
         match item {
             SessionItem::Directory { .. } => {
-                self.status = Status::Error(
-                    "Select a live or resurrectable session to delete it.".to_string(),
-                );
+                self.status = Status::Error("Select a live session to delete it.".to_string());
             }
             SessionItem::ExistingSession {
                 is_current: true, ..
@@ -256,9 +243,8 @@ impl State {
                     "Cannot delete the current session from inside itself.".to_string(),
                 );
             }
-            SessionItem::ExistingSession { name, .. }
-            | SessionItem::ResurrectableSession { name, .. } => {
-                self.session_manager.delete_session(&name);
+            SessionItem::ExistingSession { name, .. } => {
+                self.session_manager.kill_session(&name);
                 self.status = Status::Ready;
             }
         }

@@ -136,11 +136,6 @@ fn search_text(item: &SessionItem) -> String {
             let current_text = if *is_current { " current" } else { "" };
             format!("{name} {directory}{current_text}")
         }
-        SessionItem::ResurrectableSession {
-            name,
-            duration_text,
-            ..
-        } => format!("{name} {duration_text}"),
         SessionItem::Directory {
             path, session_name, ..
         } => format!("{path} {session_name}"),

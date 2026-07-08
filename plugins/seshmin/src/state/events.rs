@@ -117,8 +117,6 @@ impl State {
         match get_session_list() {
             Ok(snapshot) => {
                 self.session_manager.update_sessions(snapshot.live_sessions);
-                self.session_manager
-                    .update_resurrectable_sessions(snapshot.resurrectable_sessions);
                 self.filter_treemin_sessions();
                 self.sessions_loaded = true;
                 self.selected_index = 0;
@@ -173,7 +171,5 @@ impl State {
 
         self.session_manager
             .retain_sessions(|session| !managed_sessions.contains(&session.name));
-        self.session_manager
-            .retain_resurrectable_sessions(|(name, _)| !managed_sessions.contains(name));
     }
 }

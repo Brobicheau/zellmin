@@ -231,17 +231,6 @@ fn render_item_line(item: &SessionItem, selected: bool, width: usize) -> String 
                 style(&format!(" ({directory}){current}"), DIM, Some(BLUE))
             )
         }
-        SessionItem::ResurrectableSession {
-            name,
-            duration_text,
-            ..
-        } => format!(
-            "{} {} {} {}",
-            selected_marker,
-            style("↺", BOLD, Some(YELLOW)),
-            style(name, BOLD, Some(WHITE)),
-            style(duration_text, DIM, Some(BLUE))
-        ),
         SessionItem::Directory {
             path, session_name, ..
         } => format!(
