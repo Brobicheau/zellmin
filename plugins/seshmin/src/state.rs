@@ -4,7 +4,7 @@ use humantime::format_duration;
 use zellij_tile::prelude::*;
 
 use crate::config::Config;
-use crate::session::{SessionItem, SessionManager};
+use crate::session::{next_selectable_index, SessionItem, SessionManager};
 use crate::storage::treemin_registry;
 use crate::ui;
 use crate::zoxide::{self, SearchEngine, ZoxideDirectory};
@@ -612,18 +612,14 @@ impl State {
             return;
         }
 
-        let items_len = self.display_items().len();
-        if items_len == 0 {
-            return;
-        }
-
         let items = self.display_items();
-        for step in 1..=items_len {
-            let index = (self.selected_index + items_len - step) % items_len;
-            if items[index].is_selectable() {
-                self.selected_index = index;
-                break;
-            }
+        if let Some(index) = next_selectable_index(
+            &items,
+            self.selected_index,
+            false,
+            SessionItem::is_selectable,
+        ) {
+            self.selected_index = index;
         }
     }
 
@@ -633,18 +629,14 @@ impl State {
             return;
         }
 
-        let items_len = self.display_items().len();
-        if items_len == 0 {
-            return;
-        }
-
         let items = self.display_items();
-        for step in 1..=items_len {
-            let index = (self.selected_index + step) % items_len;
-            if items[index].is_selectable() {
-                self.selected_index = index;
-                break;
-            }
+        if let Some(index) = next_selectable_index(
+            &items,
+            self.selected_index,
+            true,
+            SessionItem::is_selectable,
+        ) {
+            self.selected_index = index;
         }
     }
 

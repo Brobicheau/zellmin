@@ -2,4 +2,4 @@ mod manager;
 mod types;
 
 pub use manager::SessionManager;
-pub use types::SessionItem;
+pub use types::{next_selectable_index, SessionItem};

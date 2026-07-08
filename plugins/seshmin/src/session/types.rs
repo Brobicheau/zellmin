@@ -20,6 +20,31 @@ pub enum SessionItem {
     },
 }
 
+pub fn next_selectable_index<T>(
+    items: &[T],
+    current_index: usize,
+    forward: bool,
+    is_selectable: impl Fn(&T) -> bool,
+) -> Option<usize> {
+    if items.is_empty() {
+        return None;
+    }
+
+    for step in 1..=items.len() {
+        let index = if forward {
+            (current_index + step) % items.len()
+        } else {
+            (current_index + items.len() - step) % items.len()
+        };
+
+        if is_selectable(&items[index]) {
+            return Some(index);
+        }
+    }
+
+    None
+}
+
 impl SessionItem {
     pub fn is_selectable(&self) -> bool {
         !matches!(
