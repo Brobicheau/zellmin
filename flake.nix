@@ -51,6 +51,50 @@
           );
       };
 
+      packages = forEachSupportedSystem (
+        { pkgs, ... }:
+        let
+          zellminPlugins = pkgs.pkgsCross.wasi32.rustPlatform.buildRustPackage {
+            pname = "zellmin-plugins";
+            version = "unstable";
+            src = self;
+
+            cargoLock.lockFile = ./Cargo.lock;
+
+            env.RUSTFLAGS = "-C linker=wasm-ld";
+            nativeBuildInputs = [ pkgs.pkgsCross.wasi32.lld ];
+
+            cargoBuildFlags = [
+              "--target=wasm32-wasip1"
+              "--workspace"
+            ];
+            doCheck = false;
+
+            installPhase = ''
+              runHook preInstall
+              install -Dm644 target/wasm32-wasip1/release/treemin.wasm \
+                $out/treemin.wasm
+              install -Dm644 target/wasm32-wasip1/release/seshmin.wasm \
+                $out/seshmin.wasm
+              runHook postInstall
+            '';
+          };
+        in
+        {
+          inherit zellminPlugins;
+
+          treemin = pkgs.runCommand "treemin-wasm" { } ''
+            install -Dm644 ${zellminPlugins}/treemin.wasm $out/treemin.wasm
+          '';
+
+          seshmin = pkgs.runCommand "seshmin-wasm" { } ''
+            install -Dm644 ${zellminPlugins}/seshmin.wasm $out/seshmin.wasm
+          '';
+
+          default = zellminPlugins;
+        }
+      );
+
       devShells = forEachSupportedSystem (
         { pkgs, system }:
         {
