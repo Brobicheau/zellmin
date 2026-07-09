@@ -36,10 +36,12 @@ impl State {
                 true
             }
             BareKey::Enter if key.has_no_modifiers() => {
+                let _ = hide_floating_panes(Option::None);
                 self.handle_enter_on_main();
                 true
             }
             BareKey::Enter if key.has_modifiers(&[KeyModifier::Ctrl]) => {
+                let _ = hide_floating_panes(Option::None);
                 self.quick_create_selected_item();
                 true
             }
@@ -147,7 +149,6 @@ impl State {
         match item {
             SessionItem::ExistingSession { name, .. } => {
                 switch_session(Some(&name));
-                hide_self();
             }
             SessionItem::Directory {
                 path, session_name, ..
@@ -182,7 +183,6 @@ impl State {
         match item {
             SessionItem::ExistingSession { name, .. } => {
                 switch_session(Some(&name));
-                hide_self();
             }
             SessionItem::Directory {
                 path, session_name, ..

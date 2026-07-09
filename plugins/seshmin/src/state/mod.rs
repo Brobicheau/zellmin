@@ -19,6 +19,7 @@ pub struct State {
     pub(crate) show_help: bool,
     sessions_loaded: bool,
     directories_loaded: bool,
+    pub(crate) session_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +64,7 @@ impl Default for State {
             show_help: false,
             sessions_loaded: false,
             directories_loaded: false,
+            session_name: Option::None,
         }
     }
 }

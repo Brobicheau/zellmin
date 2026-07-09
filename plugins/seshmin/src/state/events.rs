@@ -24,6 +24,7 @@ impl State {
             EventType::RunCommandResult,
             EventType::Key,
             EventType::TabUpdate,
+            EventType::ModeUpdate,
         ]);
         request_permission(&[
             PermissionType::RunCommands,
@@ -43,6 +44,10 @@ impl State {
                 true
             }
             Event::Key(key) => self.handle_key(key),
+            Event::ModeUpdate(mode_info) => {
+                self.session_name = mode_info.session_name;
+                true
+            }
             Event::TabUpdate(tabs) => {
                 let active_tab = get_focused_tab(&tabs).unwrap();
                 if !active_tab.are_floating_panes_visible && self.is_plugin_pane_floating() {
@@ -179,7 +184,7 @@ impl State {
     }
 
     pub fn is_plugin_pane_floating(&mut self) -> bool {
-        return dbg!(self.get_plugin_pane().is_floating);
+        return self.get_plugin_pane().is_floating;
     }
 
     fn get_plugin_pane(&mut self) -> PaneInfo {
