@@ -63,7 +63,11 @@ impl State {
                     self.clamp_selection();
                     true
                 } else {
-                    hide_self();
+                    if self.is_plugin_pane_floating() {
+                        let _ = hide_floating_panes(Option::None);
+                    } else {
+                        hide_self();
+                    }
                     false
                 }
             }

@@ -178,7 +178,7 @@ impl State {
             .retain_sessions(|session| !managed_sessions.contains(&session.name));
     }
 
-    fn is_plugin_pane_floating(&mut self) -> bool {
+    pub fn is_plugin_pane_floating(&mut self) -> bool {
         return dbg!(self.get_plugin_pane().is_floating);
     }
 
