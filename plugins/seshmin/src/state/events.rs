@@ -18,7 +18,6 @@ impl State {
         self.draft_session = None;
         self.sessions_loaded = false;
         self.directories_loaded = false;
-        rename_plugin_pane(get_plugin_ids().plugin_id, "seshmin");
         set_selectable(true);
         subscribe(&[
             EventType::PermissionRequestResult,
@@ -45,15 +44,9 @@ impl State {
             }
             Event::Key(key) => self.handle_key(key),
             Event::TabUpdate(tabs) => {
-                match tabs.iter().find(|t| t.active) {
-                    Some(active_tab) => {
-                        if !active_tab.are_floating_panes_visible {
-                            hide_self();
-                        }
-                    }
-                    None => {
-                        eprintln!("No Active Tab");
-                    }
+                let active_tab = self.get_active_tab(&tabs);
+                if !active_tab.are_floating_panes_visible && self.is_plugin_pane_floating() {
+                    hide_self();
                 }
                 false
             }
@@ -62,12 +55,24 @@ impl State {
     }
 
     pub fn render_plugin(&mut self, rows: usize, cols: usize) {
+        self.size_plugin_pane();
         ui::render(self, rows, cols);
+    }
+
+    pub fn size_plugin_pane(&mut self) {
+        if self.is_plugin_pane_floating() {
+            let cords = FloatingPaneCoordinates::default()
+                .with_width_percent(75)
+                .with_height_percent(75);
+
+            change_floating_panes_coordinates(vec![(self.get_plugin_pane_id(), cords)]);
+        }
     }
 
     fn handle_permission_result(&mut self, permission_status: PermissionStatus) {
         match permission_status {
             PermissionStatus::Granted => {
+                rename_plugin_pane(get_plugin_ids().plugin_id, "seshmin");
                 self.status = Status::Busy("Loading zoxide directories...".to_string());
                 self.fetch_zoxide_directories();
             }
@@ -171,5 +176,26 @@ impl State {
 
         self.session_manager
             .retain_sessions(|session| !managed_sessions.contains(&session.name));
+    }
+
+    fn is_plugin_pane_floating(&mut self) -> bool {
+        return dbg!(self.get_plugin_pane().is_floating);
+    }
+
+    fn get_plugin_pane(&mut self) -> PaneInfo {
+        return get_pane_info(self.get_plugin_pane_id()).unwrap();
+    }
+
+    fn get_plugin_pane_id(&mut self) -> PaneId {
+        return PaneId::Plugin(get_plugin_ids().plugin_id);
+    }
+
+    fn get_active_tab(&mut self, tabs: &Vec<TabInfo>) -> TabInfo {
+        match tabs.iter().find(|t| t.active) {
+            Some(active_tab) => {
+                return dbg!(active_tab.clone());
+            }
+            None => panic!(),
+        }
     }
 }

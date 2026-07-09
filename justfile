@@ -46,6 +46,10 @@ test:
 
 [group('Quality')]
 debug-logs:
+    tail -f "$(dirname "$(mktemp --dry)")/zellij-$(id -u)/zellij-log/zellij.log" | grep -E "DEBUG"
+
+[group('Quality')]
+plugin-logs:
     tail -f "$(dirname "$(mktemp --dry)")/zellij-$(id -u)/zellij-log/zellij.log"
 
 # Print the debug treemin plugin wasm path
@@ -88,4 +92,11 @@ seshmin-open:
 seshmin-open-release:
     zellij action launch-or-focus-plugin "file:$PWD/{{seshmin_release_plugin_path}}" --floating --skip-plugin-cache
 
+[group('Seshmin')]
+seshmin-kill-all:
+    #!/usr/bin/env nu
+    zellij action list-panes | from ssv | select PANE_ID TITLE | where TITLE == "seshmin" | get PANE_ID | each { |id| zellij action close-pane -p $id }
+
+[group('Seshmin')]
+seshmin-reload: build seshmin-kill-all seshmin-open
 
