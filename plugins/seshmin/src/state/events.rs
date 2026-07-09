@@ -44,7 +44,7 @@ impl State {
             }
             Event::Key(key) => self.handle_key(key),
             Event::TabUpdate(tabs) => {
-                let active_tab = self.get_active_tab(&tabs);
+                let active_tab = get_focused_tab(&tabs).unwrap();
                 if !active_tab.are_floating_panes_visible && self.is_plugin_pane_floating() {
                     hide_self();
                 }
@@ -188,14 +188,5 @@ impl State {
 
     fn get_plugin_pane_id(&mut self) -> PaneId {
         return PaneId::Plugin(get_plugin_ids().plugin_id);
-    }
-
-    fn get_active_tab(&mut self, tabs: &Vec<TabInfo>) -> TabInfo {
-        match tabs.iter().find(|t| t.active) {
-            Some(active_tab) => {
-                return dbg!(active_tab.clone());
-            }
-            None => panic!(),
-        }
     }
 }
